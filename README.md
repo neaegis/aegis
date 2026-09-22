@@ -88,7 +88,7 @@ liner/desktop/
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/tryliner/desktop.git
+git clone https://github.com/neaegis/aegis.git
 cd desktop
 
 # 2. Install dependencies (pnpm or Bun)
@@ -145,7 +145,7 @@ Contributions, bug fixes, and feature enhancements are welcome:
 2. Create your feature branch (`git checkout -b feat/my-feature`).
 3. Commit your changes (`git commit -m 'feat: add amazing feature'`).
 4. Push to your branch (`git push origin feat/my-feature`).
-5. Open a Pull Request to `tryliner/desktop`.
+5. Open a Pull Request to `neaegis/aegis`.
 
 ---
 

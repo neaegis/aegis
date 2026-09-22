@@ -140,7 +140,7 @@ export function AboutTab({ searchQuery }: { searchQuery?: string }) {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => openUrl("https://github.com/tryliner/desktop")}
+              onClick={() => openUrl("https://github.com/neaegis/aegis")}
               className="!h-[28px] !px-[10px] !text-[12px] gap-[6px]"
             >
               <FaGithub size={13} />

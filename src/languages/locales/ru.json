@@ -735,7 +735,8 @@
       "badge_private": "Приватный"
     },
     "discord": {
-      "listen_button": "Слушать в Aegis"
+      "listen_button": "Слушать в Aegis",
+      "large_text": "Сейчас в Aegis"
     },
     "controls": {
       "description": "Переназначайте глобальные горячие клавиши и настройте отображение в Discord.",

@@ -296,7 +296,7 @@ const tabLabels: Record<TabId, string> = {
             </p>
             <button
               type="button"
-              onClick={() => openExternal("https://github.com/tryliner/desktop/blob/main/README.md")}
+              onClick={() => openExternal("https://github.com/neaegis/aegis/blob/main/README.md")}
               className="w-full flex items-center gap-[10px] px-[10px] py-[8px] rounded-[8px] border-0 bg-transparent text-text-secondary hover:bg-border-alpha-14 hover:text-text-primary cursor-pointer text-left transition-colors"
               style={{ ...font, fontSize: "13.5px" }}
             >

@@ -712,7 +712,8 @@
       "badge_private": "Private"
     },
     "discord": {
-      "listen_button": "Listen in Aegis"
+      "listen_button": "Listen in Aegis",
+      "large_text": "Now Playing: Aegis"
     },
     "controls": {
       "description": "Rebind global keyboard shortcuts and choose what shows in your Discord status.",
