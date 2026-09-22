@@ -938,15 +938,6 @@ if (!gotTheLock) {
       }
     });
 
-    // automatic update check after window initialization (packaged app only)
-    if (app.isPackaged) {
-      setTimeout(() => {
-        autoUpdater.checkForUpdates().catch((err) => {
-          console.error("\x1b[31m updater \x1b[0m background check error:", err?.message || err);
-        });
-      }, 4000);
-    }
-
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) {
         createWindow();

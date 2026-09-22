@@ -14,12 +14,18 @@ export default function UpdateToastBridge() {
   const installUpdate = useUpdaterStore((state) => state.installUpdate);
   const reset = useUpdaterStore((state) => state.reset);
   const initUpdaterListeners = useUpdaterStore((state) => state.initUpdaterListeners);
+  const checkForUpdates = useUpdaterStore((state) => state.checkForUpdates);
 
   // initialize ipc listeners from electron main process
   useEffect(() => {
     const cleanup = initUpdaterListeners();
     return cleanup;
   }, [initUpdaterListeners]);
+
+  // check for updates on app launch so the user is prompted with the update modal
+  useEffect(() => {
+    void checkForUpdates();
+  }, [checkForUpdates]);
 
   useEffect(() => {
     const TOAST_ID = "app-update-card";
