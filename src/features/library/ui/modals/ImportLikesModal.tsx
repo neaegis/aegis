@@ -6,6 +6,7 @@ import { useTranslation } from "@/languages";
 import { useModalStore } from "../../store/modalStore";
 import { useImportStore } from "../../store/importStore";
 import { api, resolveApiErrorMessage } from "@/shared/api";
+import { LocalImportError } from "../../import/parsers";
 
 export default function ImportLikesModal() {
   const { t } = useTranslation();
@@ -46,7 +47,11 @@ export default function ImportLikesModal() {
       await useImportStore.getState().startImport(sourceUrl);
       close();
     } catch (err: unknown) {
-      setImportError(resolveApiErrorMessage(err, t, "common.failed_import_playlist"));
+      if (err instanceof LocalImportError) {
+        setImportError(err.message);
+      } else {
+        setImportError(resolveApiErrorMessage(err, t, "common.failed_import_playlist"));
+      }
     } finally {
       setImporting(false);
     }

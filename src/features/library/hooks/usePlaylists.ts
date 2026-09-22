@@ -1,5 +1,8 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { api, mediaUrl, toClientTrack, type ApiUserPlaylistItem } from "@/shared/api";
+import { getAuthSession } from "@/shared/api/auth-session";
+import { aegisDb, type LocalPlaylistRecord } from "@/shared/storage/aegisDb";
+import { registerUserScopedRehydrate } from "@/shared/utils/userScope";
+import { GUEST_USER } from "@/features/auth/store/authStore";
 import type { Track } from "@/shared/types";
 
 export interface LibraryPlaylistSummary {
@@ -27,25 +30,31 @@ export interface LibraryPlaylistDetail {
 
 type PlaylistList = { playlists: LibraryPlaylistSummary[]; total: number };
 
-const COVER_CACHE_KEY = "liner:playlist-covers-v2";
-type CoverCacheEntry = { coverUrls: string[]; trackCount: number; updatedAt: string };
-type CoverCache = Record<string, CoverCacheEntry>;
-
-function readCoverCache(): CoverCache {
-  if (typeof window === "undefined") return {};
-  try { return JSON.parse(localStorage.getItem(COVER_CACHE_KEY) ?? "{}"); } catch { return {}; }
+function currentUserId(): string {
+  return getAuthSession()?.user?.id ?? GUEST_USER.id;
 }
 
-function writeCoverCache(c: CoverCache) {
-  try { localStorage.setItem(COVER_CACHE_KEY, JSON.stringify(c)); } catch {}
-}
-
-function extractCovers(items: ApiUserPlaylistItem[]): string[] {
+function extractCovers(items: LocalPlaylistRecord["items"]): string[] {
   return items
-    .map((i) => (i.track.cover ? mediaUrl(i.track.cover.url) : ""))
+    .map((i) => i.track.coverUrl ?? "")
     .filter(Boolean)
     .filter((url, idx, arr) => arr.indexOf(url) === idx)
     .slice(0, 4);
+}
+
+function toSummary(record: LocalPlaylistRecord): LibraryPlaylistSummary {
+  const coverUrls = extractCovers(record.items);
+  return {
+    id: record.playlistId,
+    title: record.title,
+    description: record.description,
+    trackCount: record.items.length,
+    coverUrl: coverUrls[0] ?? "",
+    coverUrls,
+    updatedAt: new Date(record.updatedAt).toISOString(),
+    createdAt: new Date(record.createdAt).toISOString(),
+    revision: record.revision,
+  };
 }
 
 const EMPTY: PlaylistList = { playlists: [], total: 0 };
@@ -54,12 +63,13 @@ let loaded = false;
 let request: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 let view = { data: cache, error: undefined as unknown, isLoading: true };
+let generation = 0;
 
 export function notifyLibraryChanged() {
   window.dispatchEvent(new Event("library:changed"));
 }
 
-// optimistically drop playlist from store so ui reacts instantly without waiting on network
+// optimistically drop playlist from store so ui reacts instantly
 export function evictPlaylistFromCache(id: string) {
   cache = {
     playlists: cache.playlists.filter((p) => p.id !== id),
@@ -93,78 +103,45 @@ function load(force = false): Promise<void> {
     emit();
   }
 
-  request = (async () => {
-    const coverCache = readCoverCache();
-    const response = await api.listPlaylists();
-
-    const playlists = await Promise.all(
-      response.items.map(async (playlist) => {
-        const cached = coverCache[playlist.id];
-
-        if (cached && cached.updatedAt === playlist.updatedAt) {
-          return {
-            ...playlist,
-            trackCount: cached.trackCount,
-            coverUrl: cached.coverUrls[0] ?? "",
-            coverUrls: cached.coverUrls,
-          };
-        }
-
-        const detail = await api.getUserPlaylist(playlist.id);
-        const covers = extractCovers(detail.items);
-        const entry: CoverCacheEntry = {
-          coverUrls: covers,
-          trackCount: detail.items.length,
-          updatedAt: playlist.updatedAt,
-        };
-        coverCache[playlist.id] = entry;
-        return {
-          ...playlist,
-          trackCount: detail.items.length,
-          coverUrl: covers[0] ?? "",
-          coverUrls: covers,
-        };
-      })
-    );
-
-    const liveIds = new Set(response.items.map((p) => p.id));
-    for (const id of Object.keys(coverCache)) {
-      if (!liveIds.has(id)) delete coverCache[id];
-    }
-    writeCoverCache(coverCache);
-
-    cache = { playlists, total: playlists.length };
-    loaded = true;
-  })()
-    .catch(() => {
-      cache = EMPTY;
+  request = (() => {
+    const gen = generation;
+    return (async () => {
+      const records = await aegisDb.listPlaylists(currentUserId());
+      if (gen !== generation) return;
+      cache = { playlists: records.map(toSummary), total: records.length };
       loaded = true;
-    })
-    .finally(() => {
-      request = null;
-      emit();
-    });
+    })()
+      .catch(() => {
+        if (gen === generation) {
+          cache = EMPTY;
+          loaded = true;
+        }
+      })
+      .finally(() => {
+        request = null;
+        if (gen === generation) emit();
+      });
+  })();
   return request;
 }
 
 if (typeof window !== "undefined") {
-  const target = window as Window & { __linerPlaylistsRefresh?: EventListener };
-  if (target.__linerPlaylistsRefresh)
-    window.removeEventListener("library:changed", target.__linerPlaylistsRefresh);
-  target.__linerPlaylistsRefresh = () => {
+  const target = window as Window & { __aegisPlaylistsRefresh?: EventListener };
+  if (target.__aegisPlaylistsRefresh)
+    window.removeEventListener("library:changed", target.__aegisPlaylistsRefresh);
+  target.__aegisPlaylistsRefresh = () => {
     // silent background refresh without toggling loading state
     void load(true);
   };
-  window.addEventListener("library:changed", target.__linerPlaylistsRefresh);
+  window.addEventListener("library:changed", target.__aegisPlaylistsRefresh);
 }
 
-function toTrack(item: ApiUserPlaylistItem): Track {
-  const base = toClientTrack(item.track);
-  return {
-    ...base,
-    playlistItemId: item.id,
-  };
-}
+registerUserScopedRehydrate(() => {
+  generation += 1;
+  loaded = false;
+  cache = EMPTY;
+  void load();
+});
 
 export function usePlaylistsList() {
   const state = useSyncExternalStore(subscribe, snapshot, () => SERVER_SNAPSHOT);
@@ -190,28 +167,27 @@ export function usePlaylist(id: string | null) {
     const fetchDetail = async (isBackground = false) => {
       if (!isBackground) setIsLoading(true);
       try {
-        const response = await api.getUserPlaylist(id);
+        const record = await aegisDb.getPlaylist(currentUserId(), id);
         if (!active) return;
-
-        const covers = extractCovers(response.items);
-
-        const coverCache = readCoverCache();
-        coverCache[id] = {
-          coverUrls: covers,
-          trackCount: response.items.length,
-          updatedAt: response.playlist.updatedAt,
-        };
-        writeCoverCache(coverCache);
-
+        if (!record) {
+          setData(null);
+          return;
+        }
+        const covers = extractCovers(record.items);
         setData({
-          id: response.playlist.id,
-          title: response.playlist.title,
-          description: response.playlist.description,
-          trackCount: response.items.length,
+          id: record.playlistId,
+          title: record.title,
+          description: record.description,
+          trackCount: record.items.length,
           coverUrl: covers[0] ?? "",
           coverUrls: covers,
-          revision: response.playlist.revision,
-          tracks: response.items.map(toTrack),
+          revision: record.revision,
+          tracks: record.items.map((i) =>
+            ({
+              ...i.track,
+              playlistItemId: i.itemId,
+            } as Track),
+          ),
         });
       } catch (err) {
         if (active) setError(err);

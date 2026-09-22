@@ -26,7 +26,10 @@ export function AuthLock({ children }: { children: React.ReactNode }) {
     if (status === "anonymous" && pathname !== "/login") {
       navigate("/login", { replace: true });
     }
-    if (status === "authenticated" && pathname === "/login") {
+    if (
+      (status === "authenticated" || status === "guest") &&
+      pathname === "/login"
+    ) {
       navigate("/", { replace: true });
     }
   }, [pathname, navigate, status]);
@@ -34,7 +37,7 @@ export function AuthLock({ children }: { children: React.ReactNode }) {
   if (
     status === "initializing" ||
     (status === "anonymous" && pathname !== "/login") ||
-    (status === "authenticated" && pathname === "/login")
+    ((status === "authenticated" || status === "guest") && pathname === "/login")
   ) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-bg-primary">

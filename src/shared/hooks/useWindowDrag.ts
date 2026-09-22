@@ -86,7 +86,7 @@ export function useWindowDrag({
         }
         isDragging = true;
         // signal main process to lock cursor origin for smooth wayland drag
-        window.linerElectron?.dragStart?.();
+        window.aegisElectron?.dragStart?.();
       }
 
       const deltaX = e.screenX - lastScreenX;
@@ -96,14 +96,14 @@ export function useWindowDrag({
 
       if (deltaX !== 0 || deltaY !== 0) {
         lastWindowDragTime = Date.now();
-        window.linerElectron?.dragMove(deltaX, deltaY);
+        window.aegisElectron?.dragMove(deltaX, deltaY);
       }
     };
 
     const handlePointerUp = () => {
       if (isDragging) {
         lastWindowDragTime = Date.now();
-        window.linerElectron?.dragEnd?.();
+        window.aegisElectron?.dragEnd?.();
       }
       window.removeEventListener("pointermove", handlePointerMove, { capture: true });
       window.removeEventListener("pointerup", handlePointerUp, { capture: true });
@@ -131,7 +131,7 @@ export function useWindowDrag({
 
       // trigger OS native window drag loop immediately (handles wayland windowing smoothly)
       lastWindowDragTime = Date.now();
-      window.linerElectron?.startWindowMove?.();
+      window.aegisElectron?.startWindowMove?.();
 
       window.addEventListener("pointermove", handlePointerMove, { capture: true });
       window.addEventListener("pointerup", handlePointerUp, { capture: true });
@@ -147,7 +147,7 @@ export function useWindowDrag({
       if (!isInDraggableRegion(target, e.clientY)) return;
       if (isInteractive(target)) return;
 
-      window.linerElectron?.toggleMaximize();
+      window.aegisElectron?.toggleMaximize();
     };
 
     window.addEventListener("pointerdown", handlePointerDown, { capture: true });

@@ -1,14 +1,14 @@
 {
-  "name": "@liner/client",
+  "name": "@aegis/client",
   "version": "0.1.29",
   "type": "module",
   "private": true,
-  "description": "Liner Music Player",
+  "description": "Aegis Music Player",
   "author": {
     "name": "hkamori",
     "email": "dev@tryliner.fun"
   },
-  "desktopName": "liner",
+  "desktopName": "aegis",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
@@ -23,15 +23,15 @@
     "electron:build:mac": "tsc -b && vite build && electron-builder --mac"
   },
   "build": {
-    "appId": "com.hkamori.liner",
-    "productName": "Liner",
-    "executableName": "liner",
+    "appId": "com.hkamori.aegis",
+    "productName": "Aegis",
+    "executableName": "aegis",
     "artifactName": "${productName}-${version}-${arch}.${ext}",
     "publish": [
       {
         "provider": "github",
-        "owner": "tryliner",
-        "repo": "desktop"
+        "owner": "neaegis",
+        "repo": "aegis"
       }
     ],
     "directories": {
@@ -39,7 +39,7 @@
     },
     "protocols": [
       {
-        "name": "Liner",
+        "name": "Aegis",
         "schemes": [
           "liner"
         ]
@@ -50,7 +50,7 @@
       "dist-electron/**/*"
     ],
     "linux": {
-      "executableName": "liner",
+      "executableName": "aegis",
       "syncDesktopName": true,
       "maintainer": "hkamori <dev@tryliner.fun>",
       "icon": "build/icons",
@@ -61,21 +61,21 @@
       "category": "Audio"
     },
     "deb": {
-      "packageName": "liner",
-      "artifactName": "liner_${version}_${arch}.${ext}"
+      "packageName": "aegis",
+      "artifactName": "aegis_${version}_${arch}.${ext}"
     },
     "appImage": {
-      "artifactName": "Liner-${version}.${ext}"
+      "artifactName": "Aegis-${version}.${ext}"
     },
     "win": {
-      "executableName": "liner",
+      "executableName": "aegis",
       "icon": "build/icon.ico",
       "target": [
         "nsis"
       ]
     },
     "nsis": {
-      "artifactName": "Liner-Setup-${version}.${ext}",
+      "artifactName": "Aegis-Setup-${version}.${ext}",
       "allowToChangeInstallationDirectory": true,
       "oneClick": false
     },

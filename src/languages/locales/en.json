@@ -43,7 +43,7 @@
   },
   "common": {
     "app": {
-      "name": "Liner",
+      "name": "Aegis",
       "description": "More of what you like",
       "version": "Version 0.1.0"
     },
@@ -51,7 +51,10 @@
       "home": "Home",
       "search": "Search",
       "library": "Library",
-      "settings": "Settings"
+      "settings": "Settings",
+      "artist": "Artist",
+      "album": "Album",
+      "playlist": "Playlist"
     },
     "loading": "Loading",
     "signed_in": "Signed in",
@@ -61,6 +64,7 @@
     "off": "Off",
     "added_to_queue": "Added to queue",
     "account": "Account",
+    "beta": "beta",
     "coming_soon": "Coming soon",
     "play_all": "Play all",
     "add_to_queue": "Add to queue",
@@ -75,7 +79,7 @@
     "rename": "Rename",
     "edit_description": "Edit description",
     "add_description": "Add description",
-    "import_sources_hint": "Paste a link from YouTube, SoundCloud, Spotify, Deezer or Apple Music",
+    "import_sources_hint": "Paste a link from YouTube or SoundCloud",
     "make_public": "Make public",
     "delete": "Delete",
     "create": "Create",
@@ -94,7 +98,7 @@
     "create_empty_playlist": "Create a brand new empty playlist",
     "playlist_name": "Playlist name",
     "import_playlist": "Import a playlist",
-    "import_playlist_description": "Import an existing playlist from Spotify or YouTube",
+    "import_playlist_description": "Import an existing playlist from YouTube or SoundCloud",
     "paste_link_placeholder": "Paste a link…",
     "magic_link": "Magic link",
     "magic_link_description": "Paste any streaming link — track, album, playlist, or artist — and we'll automatically open or add it for you.",
@@ -199,7 +203,17 @@
     "popularArtists": "Trending Artists",
     "popularPlaylists": "Popular Playlists",
     "dailyMixes": "Daily Mixes",
-    "dailyMixesSubtitle": "Fresh playlists curated around your favorite artists and genres"
+    "dailyMixesSubtitle": "Fresh playlists curated around your favorite artists and genres",
+    "moodMixes": "Mood Mixes",
+    "moodMixesSubtitle": "Made for you",
+    "moodEnergy": "Energy",
+    "moodEnergyDesc": "Pump up with your favorite tracks",
+    "moodFocus": "Focus",
+    "moodFocusDesc": "Stay in the zone with your likes",
+    "moodCalm": "Calm",
+    "moodCalmDesc": "Ease off with familiar sounds",
+    "moodNight": "Night drive",
+    "moodNightDesc": "Late-night favorites from your library"
   },
   "library": {
     "title": "Library",
@@ -235,7 +249,7 @@
     "sign_in_to_account": "Sign in to your account",
     "auth_title_login": "Your music, your way",
     "auth_subtitle_login": "Sign in and pick up right where you left off.",
-    "auth_title_register": "Join Liner",
+    "auth_title_register": "Join Aegis",
     "auth_subtitle_register": "Create an account and start building your personal library.",
     "profile_setup_title": "Set up your profile",
     "profile_setup_subtitle": "Choose your unique handle and display name.",
@@ -244,7 +258,7 @@
     "btn_back": "Back",
     "username_hint": "3-30 lowercase characters, numbers or underscores.",
     "label_email": "Email",
-    "label_username": "Username (@handle)",
+    "label_username": "Username",
     "placeholder_username": "soundwave",
     "label_display_name": "Display Name",
     "placeholder_display_name": "Your name or alias",
@@ -258,6 +272,7 @@
     "btn_signing_in": "Signing in…",
     "btn_create_account": "Create account",
     "btn_creating_account": "Creating account…",
+    "btn_guest": "Browse as guest",
     "separator_or": "or",
     "have_account": "Already have an account?",
     "have_account_action": "Sign in",
@@ -306,7 +321,7 @@
       "email_invalid": "Enter a valid email address.",
       "password_min_8": "Password must contain at least 8 characters.",
       "server_unavailable": "Unable to reach the server. Please check your connection.",
-      "invalid_credentials": "Email or password is incorrect.",
+      "invalid_credentials": "Username or password is incorrect.",
       "email_already_used": "This email is already in use.",
       "username_invalid": "Username must be 3-30 lowercase letters, numbers, or underscores.",
       "username_taken": "This username is already taken. Please choose another.",
@@ -334,6 +349,25 @@
       "login_successful": "Login successful",
       "account_created": "Account created!",
       "logged_in": "Logged in!"
+    }
+  },
+  "eq": {
+    "title": "Equalizer",
+    "beta": "beta",
+    "reset": "Reset",
+    "hint": "Drag the sliders to shape the sound. Your adjustments are saved automatically as a custom profile.",
+    "presets": {
+      "flat": "Flat",
+      "pop": "Pop",
+      "rock": "Rock",
+      "jazz": "Jazz",
+      "classical": "Classical",
+      "hiphop": "Hip-Hop / R&B",
+      "bass": "Bass Boost",
+      "vocal": "Vocal Boost",
+      "electronic": "Electronic",
+      "water": "Water",
+      "custom": "Custom"
     }
   },
   "player": {
@@ -420,7 +454,9 @@
       "account": "Account",
       "about": "About",
       "playback": "Playback",
-      "privacy": "Privacy"
+      "privacy": "Privacy",
+      "controls": "Controls",
+      "statistics": "Statistics"
     },
     "playback": {
       "description": "Queue behavior, click actions and audio output."
@@ -466,6 +502,25 @@
     },
     "privacy": {
       "description": "Anonymous usage statistics and crash reports."
+    },
+    "statistics": {
+      "description": "Your listening summary and top tracks, artists and albums.",
+      "period_label": "Period",
+      "period_week": "Week",
+      "period_month": "Month",
+      "period_all": "All time",
+      "loading": "Loading your history…",
+      "empty": "No playback history yet. Play some music to see your stats here.",
+      "no_data": "No data for this period",
+      "time_listened": "Time listened",
+      "total_plays": "Total plays",
+      "total_tracks": "Unique tracks",
+      "total_artists": "Unique artists",
+      "top_tracks": "Top tracks",
+      "top_artists": "Top artists",
+      "top_albums": "Top albums",
+      "h": "h",
+      "min": "min"
     },
     "notifications": {
       "test_button": "Test notification",
@@ -532,8 +587,8 @@
       "title": "Cache & Storage",
       "description": "Storage breakdown, local cache analytics and media files.",
       "usage_title": "Storage Usage",
-      "device_usage": "Liner is currently using {size} of local storage.",
-      "device_usage_raw": "Liner is currently using {size} of local storage.",
+      "device_usage": "Aegis is currently using {size} of local storage.",
+      "device_usage_raw": "Aegis is currently using {size} of local storage.",
       "audio_cache_limit": "Cache size limit",
       "audio_cache_limit_desc": "Older files and media are automatically removed when full",
       "cache_limit": "Cache size limit",
@@ -549,7 +604,7 @@
       "empty_storage": "Cache is squeaky clean!",
       "cloud_disclaimer": "All media, covers and tracks stay in the cloud and will be re-downloaded seamlessly when played.",
       "clearing_title": "Clearing cache...",
-      "clearing_subtitle": "Please keep this window open while Liner is cleaning your cache.",
+      "clearing_subtitle": "Please keep this window open while Aegis is cleaning your cache.",
       "cleared_title": "Storage Cleared",
       "cleared_subtitle": "Your cache has been swept clean. New media will stream and cache automatically.",
       "done_button": "Done",
@@ -569,7 +624,7 @@
     },
     "branding": {
       "title": "Branding",
-      "description": "Choose the logo accent color.",
+      "description": "Choose the color of the aura glow around the logo.",
       "default": "Default",
       "spotify": "Spotify",
       "discord": "Discord",
@@ -604,7 +659,7 @@
       "title": "Profile",
       "signed_in_as": "Signed in as",
       "not_signed_in": "Not currently signed in to a recognized session.",
-      "sign_in": "Sign in to Liner",
+      "sign_in": "Sign in to Aegis",
       "sign_out": "Sign out",
       "sign_out_confirm": "Are you sure you want to sign out?",
       "edit_profile": "Edit profile",
@@ -615,7 +670,7 @@
       "stat_active": "Active",
       "no_bio": "No bio yet",
       "details_section": "Profile Details",
-      "details_subtitle": "Customize your public appearance across Liner",
+      "details_subtitle": "Customize your public appearance across Aegis",
       "username_label": "Username",
       "username_hint": "3-30 lowercase characters (a-z, 0-9, _). Must be unique.",
       "username_invalid": "Username must be 3-30 lowercase letters, numbers, or underscores.",
@@ -632,7 +687,7 @@
       "saved_success": "Profile updated successfully",
       "save_failed": "Failed to update profile",
       "privacy_section": "Privacy & Social",
-      "privacy_subtitle": "Control your visibility and social presence across Liner",
+      "privacy_subtitle": "Control your visibility and social presence across Aegis",
       "public_profile": {
         "title": "Public profile",
         "description": "Allow others to search for your profile and view your public information."
@@ -656,8 +711,38 @@
       "badge_public": "Public",
       "badge_private": "Private"
     },
+    "discord": {
+      "listen_button": "Listen in Aegis"
+    },
+    "controls": {
+      "description": "Rebind global keyboard shortcuts and choose what shows in your Discord status.",
+      "shortcuts_section": "Keyboard Shortcuts",
+      "shortcut_play_desc": "Pause or resume the current track.",
+      "shortcut_next_desc": "Jump to the next track in the queue.",
+      "shortcut_prev_desc": "Restart the track or go to the previous one.",
+      "shortcut_search_desc": "Open the quick search bar.",
+      "shortcut_lyrics_desc": "Show or hide the lyrics panel.",
+      "shortcut_mini_desc": "Show or hide the mini player.",
+      "reserved_hint": "Letter, number and media keys work too — modifier combos (Ctrl, Alt, Shift, Cmd) are supported. F, Q, M, arrows and Escape stay fixed.",
+      "recording": "Press keys",
+      "reset": "Reset",
+      "reset_all": "Restore defaults",
+      "restored": "All shortcuts restored to defaults",
+      "reserved": "This shortcut is reserved by the app",
+      "conflict": "This key is already used by \"{label}\" by default",
+      "taken": "\"{label}\" was reset to its default shortcut",
+      "discord_section": "Discord Rich Presence",
+      "discord_enabled": "Broadcast to Discord",
+      "discord_enabled_desc": "Show what you're listening to on your Discord profile.",
+      "discord_large": "Large image",
+      "discord_large_desc": "Main artwork shown on your Discord status.",
+      "discord_small": "Small image",
+      "discord_small_desc": "Corner badge over the large image.",
+      "asset_logo": "Aegis logo",
+      "asset_cover": "Track cover"
+    },
     "about": {
-      "liner": "Liner",
+      "aegis": "Aegis",
       "telegram": "Channel",
       "support": "Support",
       "github": "GitHub",
@@ -681,6 +766,8 @@
       "tech_lyrics_desc": "Integrated @braccato/core parser with reactive dynamic WebGL shader backgrounds.",
       "shortcuts_title": "Keyboard Shortcuts",
       "shortcut_play": "Play / Pause",
+      "shortcut_next": "Next track",
+      "shortcut_prev": "Previous track",
       "shortcut_search": "Search music",
       "shortcut_lyrics": "Toggle lyrics",
       "shortcut_mini": "Mini player",
@@ -691,7 +778,7 @@
       "report_issue_desc": "Submit bug reports, feature suggestions, or feedback on GitHub.",
       "special_thanks": "Special Thanks",
       "special_thanks_desc": "@braccato/core, @kawarp/react, Solar Icons and MingCute Icons.",
-      "license_notice": "Distributed under Liner Source-Available & Non-Commercial License."
+      "license_notice": "Distributed under Aegis Source-Available & Non-Commercial License."
     },
     "connection": {
       "title": "Connection",
@@ -771,11 +858,24 @@
     "status_failed": "Import failed",
     "view_playlist": "Open playlist",
     "no_candidate_found": "No matching track found in catalog",
-    "active_import": "Playlist Import"
+    "active_import": "Playlist Import",
+    "local_network_error": "Couldn't load the playlist page. Check your connection and try again.",
+    "local_no_tracks_found": "No tracks could be read from this link.",
+    "local_no_matches": "No selected tracks matched",
+    "local_source_unsupported": "This link isn't supported for local import. Try YouTube or SoundCloud.",
+    "local_source_vk": "VK Music import requires an authorized session and isn't available yet.",
+    "local_source_yandex": "Yandex Music import requires an authorized session and isn't available yet.",
+    "local_spotify_unavailable": "Anonymous Spotify import isn't available right now. Try YouTube or SoundCloud.",
+    "popular_on_soundcloud": "Popular on SoundCloud",
+    "popular_on_soundcloud_sub": "Trending tracks — click to import",
+    "add_all_tracks": "Add all",
+    "soundcloud_trending_failed": "Couldn't load trending tracks",
+    "try_again": "Try again",
+    "add_track": "Add track"
   },
   "error_screen": {
     "title": "Something went wrong",
-    "subtitle": "An unexpected error occurred in Liner. You can reload the app or try again.",
+    "subtitle": "An unexpected error occurred in Aegis. You can reload the app or try again.",
     "reload": "Reload app",
     "try_again": "Try again",
     "go_home": "Go to home",
@@ -802,11 +902,11 @@
   },
   "connectivity": {
     "wall_title": "Connection failed",
-    "wall_subtitle": "Liner can't reach its servers. Your music and library are safe.",
+    "wall_subtitle": "Aegis can't reach its servers. Your music and library are safe.",
     "steps_title": "Quick fixes worth trying",
     "step_net": "Check that Wi-Fi or cable is connected and pages open in a browser.",
     "step_vpn": "Pause VPN, proxy or DNS filters for a minute — they often block the app.",
-    "step_firewall": "Allow Liner through the firewall and antivirus network shields.",
+    "step_firewall": "Allow Aegis through the firewall and antivirus network shields.",
     "step_router": "Restart the router, then press Retry below.",
     "retry": "Retry",
     "retrying": "Checking…",
@@ -836,13 +936,13 @@
   },
   "updater": {
     "modal_title": "New Update Available",
-    "modal_desc": "A new version of Liner (v{version}) is ready to download.",
+    "modal_desc": "A new version of Aegis (v{version}) is ready to download.",
     "view_changelog": "Changelog",
     "skip_button": "Skip",
     "update_button": "Update",
     "downloading_title": "Downloading update…",
     "downloaded_title": "Update downloaded",
-    "downloaded_desc": "Restart Liner to install version {version}.",
+    "downloaded_desc": "Restart Aegis to install version {version}.",
     "install_button": "Install",
     "error_title": "Update failed"
   }

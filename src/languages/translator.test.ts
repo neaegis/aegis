@@ -11,8 +11,8 @@ const mockDict: TranslationDict = {
 
 describe("flatten", () => {
   it("flattens nested object with prefix", () => {
-    const result = flatten({ name: "Liner", nested: { key: "val" } }, "common");
-    expect(result).toEqual({ "common.name": "Liner", "common.nested.key": "val" });
+    const result = flatten({ name: "Aegis", nested: { key: "val" } }, "common");
+    expect(result).toEqual({ "common.name": "Aegis", "common.nested.key": "val" });
   });
 
   it("handles empty objects", () => {
@@ -84,16 +84,8 @@ describe("createTranslatorSync with plurals", () => {
     expect(tRu("common.tracks", { count: 21 })).toBe("21 трек");
   });
 
-  it("translates and pluralizes correctly in Ukrainian", () => {
-    const tUk = createTranslatorSync("uk");
-    expect(tUk("common.loading")).toBe("Завантаження");
-    expect(tUk("common.tracks", { count: 1 })).toBe("1 трек");
-    expect(tUk("common.tracks", { count: 2 })).toBe("2 треки");
-    expect(tUk("common.tracks", { count: 10 })).toBe("10 треків");
-  });
-
   it("falls back to English when key is missing in target locale", () => {
     const tRu = createTranslatorSync("ru");
-    expect(tRu("common.app.name")).toBe("Liner");
+    expect(tRu("common.app.name")).toBe("Aegis");
   });
 });

@@ -23,6 +23,9 @@ const EMPTY_STATE: PlayerState = {
   trackDoubleClickBehavior: "play",
   defaultPlaybackContext: "resume",
   fullscreen: false,
+  eqPreset: "flat",
+  eqCustomBands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  miniPlayerCollapsed: false,
 };
 
 export function usePlayerState(): PlayerState {

@@ -199,12 +199,15 @@ async function executeRequest<T>(
     "x-platform": getPlatform(),
   };
 
-  const userId = currentSession?.user?.id || (accessToken ? extractSubFromToken(accessToken) : undefined);
-  if (userId) {
-    correlationHeaders["x-user-id"] = userId;
-  }
-  if (currentSession?.user?.username) {
-    correlationHeaders["x-user-name"] = currentSession.user.username;
+  if (accessToken) {
+    const userId =
+      currentSession?.user?.id || extractSubFromToken(accessToken);
+    if (userId) {
+      correlationHeaders["x-user-id"] = userId;
+    }
+    if (currentSession?.user?.username) {
+      correlationHeaders["x-user-name"] = currentSession.user.username;
+    }
   }
 
   const activeSessionId = getActiveSessionId();
@@ -285,11 +288,8 @@ async function executeRequest<T>(
     const currentSession = getAuthSession();
     // If the token in session store was already rotated by another parallel request,
     // retry immediately with the rotated token without firing duplicate refresh requests
-    let nextToken =
-      currentSession?.accessToken && currentSession.accessToken !== accessToken
-        ? currentSession.accessToken
-        : null;
-
+    let nextToken = getAccessToken();
+    if (nextToken && nextToken === accessToken) nextToken = null;
     if (!nextToken && currentSession?.refreshToken) {
       const refreshed = await refreshAuthSession();
       nextToken = refreshed?.accessToken ?? null;
@@ -438,7 +438,7 @@ export function resolveApiErrorMessage(
   return t(fallbackKey);
 }
 
-// ---- Types from @liner/contracts --------------------------------------------
+// ---- Types from @aegis/contracts --------------------------------------------
 
 export type {
   SearchType,

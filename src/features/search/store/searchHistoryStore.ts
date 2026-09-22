@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { debouncedStorage } from "@/shared/utils/storage";
+import {
+  registerUserScopedRehydrate,
+  userScopedStorage,
+} from "@/shared/utils/userScope";
 
 export type SearchHistoryItemType =
   | "track"
@@ -60,7 +63,9 @@ export const useSearchHistoryStore = create<SearchHistoryState>()(
     }),
     {
       name: SEARCH_HISTORY_STORAGE_KEY,
-      storage: createJSONStorage(() => debouncedStorage),
+      storage: createJSONStorage(() => userScopedStorage),
     },
   ),
 );
+
+registerUserScopedRehydrate(() => useSearchHistoryStore.persist.rehydrate());

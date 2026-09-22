@@ -2,7 +2,7 @@
 # registers the liner:// protocol for xdg-open (linux dev testing).
 # packaged installs self-register via electron-builder protocols, this is
 # only so a dev checkout answers share-link clicks too.
-# usage: ./scripts/register-deeplink-linux.sh [--binary /path/to/liner]
+# usage: ./scripts/register-deeplink-linux.sh [--binary /path/to/aegis]
 set -euo pipefail
 
 DESKTOP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -13,7 +13,7 @@ if [ "${1:-}" = "--binary" ]; then
   [ -x "$BIN" ] || { echo "not executable: $BIN" >&2; exit 1; }
   EXEC="$BIN %u"
   ENTRY="liner-handler.desktop"
-  LABEL="Liner"
+  LABEL="Aegis"
 else
   ELECTRON="$DESKTOP_DIR/node_modules/.bin/electron"
   [ -x "$ELECTRON" ] || { echo "electron not found, run pnpm install first" >&2; exit 1; }
@@ -21,7 +21,7 @@ else
   # so keep the vite dev server running for this to open anything
   EXEC="$ELECTRON $DESKTOP_DIR %u"
   ENTRY="liner-dev.desktop"
-  LABEL="Liner (dev)"
+  LABEL="Aegis (dev)"
 fi
 
 mkdir -p "$APP_DIR"

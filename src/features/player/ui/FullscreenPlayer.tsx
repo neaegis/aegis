@@ -3,12 +3,15 @@ import {
   useEffect,
   createElement,
   useRef,
-  useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePlayerState } from "../hooks/usePlayerState";
 import { playerEngine } from "../engine/playerEngine";
-import { useLyricsStore, LyricsProviderIsland, braccatoThemeCss } from "@/features/lyrics";
+import {
+  useLyricsStore,
+  LyricsProviderIsland,
+  braccatoThemeCss,
+} from "@/features/lyrics";
 import { AnimatePresence, motion } from "framer-motion";
 import { PlayerUiElements } from "./PlayerUiElements";
 import { DownLine } from "@mingcute/react";
@@ -35,7 +38,7 @@ function BraccatoLyricsView({ lyrics }: BraccatoLyricsViewProps) {
     if (!el) return;
     el.theme = braccatoThemeCss;
     el.lyrics = latestLyricsRef.current;
-    el.source = "#liner-audio";
+    el.source = "#aegis-audio";
 
     const handleBraccatoLineClick = (e: Event) => {
       const detail = (e as CustomEvent).detail as
@@ -78,7 +81,7 @@ function BraccatoLyricsView({ lyrics }: BraccatoLyricsViewProps) {
     <div className="relative flex flex-col flex-1 w-full h-full min-h-0">
       {createElement(BRACCATO_TAG, {
         ref: setElement,
-        source: "#liner-audio",
+        source: "#aegis-audio",
         className: "block flex-1 w-full h-full px-6",
         style: {
           overflowY: "auto",

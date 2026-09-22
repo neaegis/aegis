@@ -16,6 +16,8 @@ import {
   User2Fill,
   AlbumFill,
   PlaylistFill,
+  Home7Fill,
+  BookmarksFill,
 } from "@mingcute/react";
 import Sidebar from "./Sidebar";
 import WindowControls from "./WindowControls";
@@ -35,6 +37,7 @@ import {
   FullscreenPlayer,
   playerEngine,
   MiniPlayer,
+  usePlayerStore,
 } from "@/features/player";
 import SearchResultsList from "@/features/search/ui/SearchResultsList";
 import { SearchHistoryList, useSearchHistoryStore } from "@/features/search";
@@ -116,7 +119,11 @@ export default function AppFrame({ children }: AppFrameProps) {
     playerEngine.subscribe,
     () => {
       const state = playerEngine.getSnapshot();
-      return state.currentTrack !== null && state.status !== "idle";
+      return (
+        state.currentTrack !== null &&
+        state.status !== "idle" &&
+        !state.miniPlayerCollapsed
+      );
     },
     () => false,
   );
@@ -136,11 +143,15 @@ export default function AppFrame({ children }: AppFrameProps) {
   useEffect(() => {
     if (prevLocationRef.current !== pathname + search) {
       prevLocationRef.current = pathname + search;
-      if (searchOpen && searchQuery.trim().length === 0) {
+      if (searchOpen) {
         closeSearch();
       }
+      setSearchQuery("");
+      if (searchInputRef.current) {
+        searchInputRef.current.blur();
+      }
     }
-  }, [pathname, search, searchOpen, searchQuery, closeSearch]);
+  }, [pathname, search, searchOpen, closeSearch]);
 
   useEffect(() => {
     if (mainScrollRef.current) {
@@ -217,8 +228,35 @@ export default function AppFrame({ children }: AppFrameProps) {
   const isRightDrawerOpen =
     queuePopupOpen && !searchOpen && !isFullscreenPlayer;
 
+  const currentLocationBadge = useMemo(() => {
+    if (pathname === "/") {
+      return { Icon: Home7Fill, label: t("common.sidebar.home") };
+    }
+    if (pathname === "/library") {
+      return { Icon: BookmarksFill, label: t("common.sidebar.library") };
+    }
+    if (pathname === "/library/playlist") {
+      return { Icon: PlaylistFill, label: t("common.sidebar.playlist") };
+    }
+    if (pathname === "/artist") {
+      return { Icon: User2Fill, label: t("common.sidebar.artist") };
+    }
+    if (pathname === "/collection") {
+      const collectionType = new URLSearchParams(search).get("type");
+      return collectionType === "playlist"
+        ? { Icon: PlaylistFill, label: t("common.sidebar.playlist") }
+        : { Icon: AlbumFill, label: t("common.sidebar.album") };
+    }
+    return null;
+  }, [pathname, search, t]);
+
   const openFullscreenPlayer = useCallback(() => {
     setFullscreenPlayerOpen(true);
+  }, []);
+
+  const toggleMiniPlayer = useCallback(() => {
+    const state = playerEngine.getSnapshot();
+    usePlayerStore.getState().setMiniPlayerCollapsed(!state.miniPlayerCollapsed);
   }, []);
 
   const closeFullscreenPlayer = useCallback(() => {
@@ -280,6 +318,7 @@ export default function AppFrame({ children }: AppFrameProps) {
     openFullscreen: openFullscreenPlayer,
     closeFullscreen: handleCloseFullscreen,
     onEscapeFallback: handleEscapeFallback,
+    toggleMiniPlayer,
   });
   const [searchScrollMask, setSearchScrollMask] = useState(
     "linear-gradient(to bottom, black 0%, black 100%)",
@@ -709,6 +748,12 @@ export default function AppFrame({ children }: AppFrameProps) {
         <Sidebar
           searchOpen={searchOpen}
           onSearchToggle={handleSearchToggle}
+          onNavigate={() => {
+            if (searchOpen) {
+              closeSearch();
+            }
+            setSearchQuery("");
+          }}
         />
       </aside>
 
@@ -813,99 +858,122 @@ export default function AppFrame({ children }: AppFrameProps) {
         ) : null}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {searchOpen && (
-          <motion.div
-            key="search-popup-wrapper"
-            ref={searchPopupRef}
-            initial={{ opacity: 0, y: -12, scale: 0.99 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -12, scale: 0.99 }}
-            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className={`absolute right-0 z-[60] flex flex-col items-center pointer-events-none pt-[56px]`}
-            style={{
-              left: SIDEBAR_WIDTH + SHELL_EDGE_GAP,
-              right: SHELL_EDGE_GAP,
-              top: 12,
-            }}
-          >
-            {/* 1. Search Input Island */}
-            <div
-              className="w-[min(660px,calc(100vw-72px))] h-[54px] rounded-[8px] pointer-events-auto flex items-center px-[18px] gap-[14px] bg-bg-panel/95 border border-border-primary/50 backdrop-blur-2xl"
-            >
-              <span className="shrink-0 flex items-center justify-center text-text-tertiary">
-                <AnimatePresence mode="wait" initial={false}>
-                  {searchLoading ? (
-                    <motion.span
-                      key="loader"
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      transition={{ duration: 0.1 }}
-                      className="inline-block h-[17px] w-[17px] rounded-full border-[1.5px] border-text-secondary border-t-transparent animate-spin"
-                      aria-hidden="true"
+      {!isFullscreenPlayer && (
+        <div
+          ref={searchPopupRef}
+          className="pointer-events-none absolute right-0 z-[60] flex flex-col items-center"
+          style={{
+            left: SIDEBAR_WIDTH + SHELL_EDGE_GAP,
+            right: SHELL_EDGE_GAP,
+            top: 0,
+          }}
+        >
+            {/* 1. Location badge (replaces the persistent search bar) */}
+            {!searchOpen && currentLocationBadge && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                className="mt-[16px] pointer-events-none select-none flex items-center gap-[8px] h-[32px] px-[13px] rounded-full bg-bg-panel/70 border border-border-primary/40 backdrop-blur-xl"
+              >
+                <currentLocationBadge.Icon
+                  size={15}
+                  className="text-text-secondary"
+                />
+                <span
+                  className="text-[12.5px] font-[560] text-text-secondary tracking-tight"
+                  style={{
+                    fontFamily: "var(--font-inter), sans-serif",
+                    lineHeight: "1.2",
+                  }}
+                >
+                  {currentLocationBadge.label}
+                </span>
+              </motion.div>
+            )}
+
+            <AnimatePresence>
+              {searchOpen && (
+                <motion.div
+                  key="search-dropdown"
+                  initial={{ opacity: 0, y: -10, scale: 0.99 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.99 }}
+                  transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                  className="flex flex-col items-center"
+                >
+                  <div className="w-[min(660px,calc(100vw-72px))] h-[54px] rounded-[8px] pointer-events-auto flex items-center px-[18px] gap-[14px] bg-bg-panel/95 border border-border-primary/50 backdrop-blur-2xl">
+                    <span className="shrink-0 flex items-center justify-center text-text-tertiary">
+                      <AnimatePresence mode="wait" initial={false}>
+                        {searchLoading ? (
+                          <motion.span
+                            key="loader"
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
+                            transition={{ duration: 0.1 }}
+                            className="inline-block h-[17px] w-[17px] rounded-full border-[1.5px] border-text-secondary border-t-transparent animate-spin"
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <motion.span
+                            key="icon"
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
+                            transition={{ duration: 0.1 }}
+                            className="inline-flex text-text-tertiary"
+                          >
+                            <Search3Line size={19} />
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </span>
+
+                    <input
+                      ref={searchInputRef}
+                      type="text"
+                      placeholder={t("common.search")}
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          submitSearchQuery(searchQuery);
+                          runSearchNow();
+                        }
+                      }}
+                      className="w-full flex-1 bg-transparent border-none outline-none text-text-primary text-[16px] placeholder:text-text-tertiary font-[400] tracking-tight"
+                      style={{
+                        fontFamily: "var(--font-inter), sans-serif",
+                        lineHeight: "1.2",
+                      }}
                     />
-                  ) : (
-                    <motion.span
-                      key="icon"
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      transition={{ duration: 0.1 }}
-                      className="inline-flex text-text-tertiary"
-                    >
-                      <Search3Line size={19} />
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </span>
 
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder={t("common.search")}
-                autoFocus
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    submitSearchQuery(searchQuery);
-                    runSearchNow();
-                  }
-                }}
-                className="w-full flex-1 bg-transparent border-none outline-none text-text-primary text-[16px] placeholder:text-text-tertiary font-[400] tracking-tight"
-                style={{
-                  fontFamily: "var(--font-inter), sans-serif",
-                  lineHeight: "1.2",
-                }}
-              />
+                    <AnimatePresence>
+                      {searchQuery.length > 0 && (
+                        <motion.button
+                          key="clear-btn"
+                          initial={{ opacity: 0, scale: 0.85 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.85 }}
+                          transition={{ duration: 0.12 }}
+                          type="button"
+                          aria-label="Clear search"
+                          onClick={() => {
+                            setSearchQuery("");
+                            searchInputRef.current?.focus();
+                          }}
+                          className="shrink-0 text-text-tertiary hover:text-text-primary transition-colors border-none bg-transparent p-0 flex items-center justify-center cursor-pointer"
+                        >
+                          <CloseCircleFill size={18} />
+                        </motion.button>
+                      )}
+                    </AnimatePresence>
+                  </div>
 
-              {/* Right: Appearing clear button */}
-              <AnimatePresence>
-                {searchQuery.length > 0 && (
-                  <motion.button
-                    key="clear-btn"
-                    initial={{ opacity: 0, scale: 0.85 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.85 }}
-                    transition={{ duration: 0.12 }}
-                    type="button"
-                    aria-label="Clear search"
-                    onClick={() => {
-                      setSearchQuery("");
-                      searchInputRef.current?.focus();
-                    }}
-                    className="shrink-0 text-text-tertiary hover:text-text-primary transition-colors border-none bg-transparent p-0 flex items-center justify-center cursor-pointer"
-                  >
-                    <CloseCircleFill size={18} />
-                  </motion.button>
-                )}
-              </AnimatePresence>
-            </div>
-
-            <AnimatePresence mode="wait">
-              {hasSearchQuery ? (
+                  <AnimatePresence mode="wait">
+                    {hasSearchQuery ? (
                 <motion.div
                   key="search-results-island"
                   initial={{ opacity: 0, y: -6, scale: 0.99 }}
@@ -1039,11 +1107,13 @@ export default function AppFrame({ children }: AppFrameProps) {
                     }}
                   />
                 </motion.div>
-              ) : null}
+                  ) : null}
+                </AnimatePresence>
+                </motion.div>
+              )}
             </AnimatePresence>
-        </motion.div>
+        </div>
       )}
-    </AnimatePresence>
 
       <AddToPlaylistModal />
       <AddToLibraryModal />

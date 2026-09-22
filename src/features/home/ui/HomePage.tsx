@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import PopularTracksSection from "./PopularTracksSection";
 import DailyMixesSection from "./DailyMixesSection";
+import MoodMixesSection from "./MoodMixesSection";
 import HomePageSkeleton from "./HomePageSkeleton";
 import {
   usePopular,
@@ -11,6 +12,7 @@ import {
 import { useRecentlyPlayed } from "../hooks/useRecentlyPlayed";
 import { useDailyMixes } from "../hooks/useDailyMixes";
 import { useLikedTracks } from "@/features/library/hooks/useLikedTracks";
+import type { Track } from "@/shared/types";
 import { playerEngine } from "@/features/player";
 import SongCard from "@/features/player/ui/SongCard";
 import SongCardWithMenu from "@/features/player/ui/SongCardWithMenu";
@@ -45,6 +47,22 @@ export default function HomePage() {
     popularLoading ||
     recentLoading ||
     likedLoading;
+
+  const moodFallbackTracks = useMemo(() => {
+    const items: Track[] = [];
+    for (const entry of popularTracksOnly || []) {
+      if (entry.type === "track" && entry.item) items.push(entry.item);
+    }
+    for (const entry of recentlyPlayed || []) {
+      if (entry.type === "track" && entry.item) items.push(entry.item);
+    }
+    const seen = new Set<string>();
+    return items.filter((tr) => {
+      if (!tr.id || seen.has(tr.id)) return false;
+      seen.add(tr.id);
+      return true;
+    });
+  }, [popularTracksOnly, recentlyPlayed]);
 
   const popularAlbums =
     popularItems?.filter((it) => it.type === "album") ?? [];
@@ -290,6 +308,13 @@ export default function HomePage() {
                 headingMarginTop="mt-[22px]"
               />
             )}
+
+            {/* Mood Mixes (personalized, localized to UI language) */}
+            <MoodMixesSection
+              tracks={likedData.tracks}
+              fallbackTracks={moodFallbackTracks}
+              headingMarginTop="mt-[22px]"
+            />
 
           {/* Listening Right Now (Trending Chart) */}
           {popularTracksOnly && popularTracksOnly.length > 0 && (

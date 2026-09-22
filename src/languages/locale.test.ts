@@ -30,14 +30,17 @@ describe("locale", () => {
   it("stores and retrieves locale", () => {
     storeLocale("ru");
     expect(getStoredLocale()).toBe("ru");
-    storeLocale("uk");
-    expect(getStoredLocale()).toBe("uk");
+    storeLocale("en");
+    expect(getStoredLocale()).toBe("en");
   });
 
-  it("migrates legacy 'ua' stored value to 'uk'", () => {
+  it("migrates legacy 'ua' and 'uk' stored values to ru", () => {
     localStorage.setItem("liner_locale", "ua");
-    expect(getStoredLocale()).toBe("uk");
-    expect(localStorage.getItem("liner_locale")).toBe("uk");
+    expect(getStoredLocale()).toBe("ru");
+    expect(localStorage.getItem("liner_locale")).toBe("ru");
+    localStorage.setItem("liner_locale", "uk");
+    expect(getStoredLocale()).toBe("ru");
+    expect(localStorage.getItem("liner_locale")).toBe("ru");
   });
 
   it("falls back to browser locale on invalid stored value", () => {
@@ -60,14 +63,14 @@ describe("getBrowserLocale", () => {
     vi.unstubAllGlobals();
   });
 
-  it("returns uk when navigator.language is uk-UA or ua-UA", () => {
+  it("maps uk-UA or ua-UA browser locale to ru", () => {
     vi.stubGlobal("window", { navigator: { language: "uk-UA", languages: ["uk-UA", "ru-RU"] } });
     vi.stubGlobal("navigator", {
       ...navigator,
       language: "uk-UA",
       languages: ["uk-UA", "ru-RU"],
     });
-    expect(getBrowserLocale()).toBe("uk");
+    expect(getBrowserLocale()).toBe("ru");
     vi.unstubAllGlobals();
   });
 

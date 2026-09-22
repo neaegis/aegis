@@ -111,7 +111,7 @@ export function showToast(
   if (typeof window === "undefined") return;
   const { variant, options } = normalizeToastArgs(variantOrOptions, maybeOptions);
   window.dispatchEvent(
-    new CustomEvent("liner:toast", {
+    new CustomEvent("aegis:toast", {
       detail: { message, variant, options },
     }),
   );
@@ -120,7 +120,7 @@ export function showToast(
 export function dismissToast(id: string | number) {
   if (typeof window === "undefined") return;
   window.dispatchEvent(
-    new CustomEvent("liner:toast-dismiss", {
+    new CustomEvent("aegis:toast-dismiss", {
       detail: { id },
     }),
   );
@@ -588,8 +588,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         toastCore(detail.message, detail.variant, detail.options);
       }
     };
-    window.addEventListener("liner:toast", handleCustomToast);
-    return () => window.removeEventListener("liner:toast", handleCustomToast);
+    window.addEventListener("aegis:toast", handleCustomToast);
+    return () => window.removeEventListener("aegis:toast", handleCustomToast);
   }, [toastCore]);
 
   useEffect(() => {
@@ -599,8 +599,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         remove(detail.id);
       }
     };
-    window.addEventListener("liner:toast-dismiss", handleDismissToast);
-    return () => window.removeEventListener("liner:toast-dismiss", handleDismissToast);
+    window.addEventListener("aegis:toast-dismiss", handleDismissToast);
+    return () => window.removeEventListener("aegis:toast-dismiss", handleDismissToast);
   }, [remove]);
 
   const visibleToasts = toasts.slice(0, 3);

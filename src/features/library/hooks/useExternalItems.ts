@@ -1,8 +1,56 @@
 import { useEffect, useState } from "react";
-import { api, mediaUrl, toMaxQualityAvatarUrl } from "@/shared/api";
+import { getAuthSession } from "@/shared/api/auth-session";
+import { aegisDb, type LocalCollectionRecord } from "@/shared/storage/aegisDb";
+import { registerUserScopedRehydrate } from "@/shared/utils/userScope";
+import { GUEST_USER } from "@/features/auth/store/authStore";
 import type { LibraryItemViewModel } from "../types";
 
 export type EntityType = "album" | "artist" | "playlist";
+
+function currentUserId(): string {
+  return getAuthSession()?.user?.id ?? GUEST_USER.id;
+}
+
+function toRefType(type: EntityType): "albums" | "artists" | "playlists" {
+  return `${type}s` as "albums" | "artists" | "playlists";
+}
+
+function toViewModel(
+  entry: LocalCollectionRecord,
+  type: EntityType,
+): LibraryItemViewModel {
+  const subtitle =
+    entry.payload.subtitle ??
+    (type === "playlist"
+      ? entry.payload.trackCount
+        ? `${entry.payload.trackCount} tracks`
+        : "Playlist"
+      : type === "artist"
+        ? "Artist"
+        : "Album");
+  return {
+    id: entry.refId,
+    title: entry.payload.title,
+    subtitle,
+    imageUrl: entry.payload.coverUrl ?? "",
+    kind: type,
+    href:
+      type === "artist"
+        ? `/artist?id=${encodeURIComponent(entry.refId)}`
+        : type === "playlist"
+          ? `/collection?type=playlist&id=${encodeURIComponent(entry.refId)}`
+          : `/collection?type=album&id=${encodeURIComponent(entry.refId)}`,
+    addedAt: new Date(entry.savedAt).toISOString(),
+    trackCount: entry.payload.trackCount,
+    isOwned: false,
+  };
+}
+
+registerUserScopedRehydrate(() => {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("library:changed"));
+  }
+});
 
 export function useExternalItems(type: EntityType) {
   const [data, setData] = useState<LibraryItemViewModel[]>([]);
@@ -10,40 +58,20 @@ export function useExternalItems(type: EntityType) {
     let active = true;
     const load = async () => {
       try {
-        const collectionType =
-          type === "album" ? "albums" : type === "artist" ? "artists" : "playlists";
-        const response = await api.listSavedCollections(collectionType);
+        const entries = await aegisDb.listCollections(currentUserId(), toRefType(type));
         if (!active) return;
-        setData(response.items.map((entry: any) => {
-          const value = entry[type];
-          const rawCover = value.cover ? mediaUrl(value.cover.url) : "";
-          const cover = type === "artist" ? toMaxQualityAvatarUrl(rawCover) : rawCover;
-          return {
-            id: value.id,
-            title: type === "artist" ? value.name : value.title,
-            subtitle:
-              type === "artist"
-                ? "Artist"
-                : type === "playlist"
-                  ? (value.author || (value.trackCount ? `${value.trackCount} tracks` : "Playlist"))
-                  : [value.year, value.trackCount ? `${value.trackCount} tracks` : undefined].filter(Boolean).join(" • "),
-            imageUrl: cover,
-            kind: type,
-            href:
-              type === "artist"
-                ? `/artist?id=${encodeURIComponent(value.id)}`
-                : type === "playlist"
-                  ? `/collection?type=playlist&id=${encodeURIComponent(value.id)}`
-                  : `/collection?type=album&id=${encodeURIComponent(value.id)}`,
-            addedAt: entry.savedAt,
-            trackCount: value.trackCount,
-            isOwned: false,
-          };
-        }));
-      } catch { if (active) setData([]); }
+        setData(entries.map((entry) => toViewModel(entry, type)));
+      } catch {
+        if (active) setData([]);
+      }
     };
-    void load(); const refresh = () => void load(); window.addEventListener("library:changed", refresh);
-    return () => { active = false; window.removeEventListener("library:changed", refresh); };
+    void load();
+    const refresh = () => void load();
+    window.addEventListener("library:changed", refresh);
+    return () => {
+      active = false;
+      window.removeEventListener("library:changed", refresh);
+    };
   }, [type]);
   return { data };
 }

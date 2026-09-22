@@ -70,9 +70,9 @@ export function PlayerUiElements({
       togglingRef.current = false;
     };
     if (isLiked) {
-      unlikeMutation.mutate(track.id, { onSettled });
+      unlikeMutation.mutate(track, { onSettled });
     } else {
-      likeMutation.mutate(track.id, { onSettled });
+      likeMutation.mutate(track, { onSettled });
     }
   }, [track, isLiked, likeMutation, unlikeMutation]);
 

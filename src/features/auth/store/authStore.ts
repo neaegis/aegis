@@ -1,26 +1,95 @@
 import { create } from "zustand";
-import { api, ApiError } from "@/shared/api";
+import { ApiError } from "@/shared/api";
 import {
   clearAuthSession,
   getAuthSession,
   setAuthSession,
+  type AuthTokens,
   type AuthUser,
   type PublicUser,
   type UpdateProfileInput,
 } from "@/shared/api";
+import { aegisDb, type LocalUserRecord } from "@/shared/storage/aegisDb";
+import { hashPassword, verifyPassword } from "@/shared/auth/passwords";
+import { rehydrateUserScopedStores } from "@/shared/utils/userScope";
 
-export type AuthStatus = "initializing" | "authenticated" | "anonymous";
+export type AuthStatus = "initializing" | "authenticated" | "guest" | "anonymous";
+
+export const GUEST_USER: AuthUser = {
+  id: "guest",
+  username: "guest",
+  displayName: "Guest",
+};
+
+const GUEST_MODE_KEY = "liner_guest_mode";
+const USERNAME_RE = /^[a-z0-9_]{3,30}$/;
+const MIN_PASSWORD_LENGTH = 8;
+
+function isGuestModeSaved(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem(GUEST_MODE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveGuestMode(on: boolean): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (on) localStorage.setItem(GUEST_MODE_KEY, "1");
+    else localStorage.removeItem(GUEST_MODE_KEY);
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function toPublicUser(record: LocalUserRecord): PublicUser {
+  return {
+    id: record.id,
+    username: record.username,
+    displayName: record.displayName,
+    avatarUrl: record.avatarUrl ?? null,
+    bio: record.bio ?? null,
+    isPublic: record.isPublic,
+  };
+}
+
+function buildLocalSession(user: PublicUser): AuthTokens {
+  return {
+    accessToken: `local:${user.id}`,
+    refreshToken: "",
+    accessTokenExpiresAt: "2099-12-31T23:59:59.999Z",
+    user,
+  };
+}
+
+function switchAccount() {
+  rehydrateUserScopedStores();
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("library:changed"));
+  }
+}
+
+function newLocalUserId(): string {
+  const suffix =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  return `local_${suffix}`;
+}
+
 export type AuthState = {
   status: AuthStatus;
   user: AuthUser | null;
   initialize: () => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
   register: (
-    email: string,
-    password: string,
     username: string,
-    displayName: string,
+    password: string,
+    displayName?: string,
   ) => Promise<void>;
+  enterGuest: () => void;
   updateProfile: (patch: UpdateProfileInput) => Promise<PublicUser>;
   logout: () => Promise<void>;
 };
@@ -31,66 +100,110 @@ export const useAuthStore = create<AuthState>((set) => ({
   initialize: async () => {
     const stored = getAuthSession();
     if (!stored) {
-      set({ status: "anonymous", user: null });
+      if (isGuestModeSaved()) {
+        set({ status: "guest", user: GUEST_USER });
+      } else {
+        set({ status: "anonymous", user: null });
+      }
       return;
     }
-    // Optimistically authenticate if stored user is present
-    if (stored.user) {
-      set({ status: "authenticated", user: stored.user });
+    set({ status: "authenticated", user: stored.user ?? null });
+  },
+  login: async (username, password) => {
+    const normalized = username.trim().toLowerCase();
+    if (!normalized || !password) {
+      throw new ApiError(400, "Username or password is incorrect.", "INVALID_CREDENTIALS");
     }
-    try {
-      const getMePromise = api.getMe();
-      const timeoutPromise = new Promise<null>((_, reject) =>
-        setTimeout(() => reject(new Error("Auth initialize timeout")), 6000),
+    const record = await aegisDb.getUserByUsername(normalized);
+    if (!record) {
+      throw new ApiError(400, "Username or password is incorrect.", "INVALID_CREDENTIALS");
+    }
+    const ok = await verifyPassword(password, record.passwordHash);
+    if (!ok) {
+      throw new ApiError(400, "Username or password is incorrect.", "INVALID_CREDENTIALS");
+    }
+    saveGuestMode(false);
+    const user = toPublicUser(record);
+    setAuthSession(buildLocalSession(user));
+    set({ status: "authenticated", user });
+    switchAccount();
+  },
+  register: async (username, password, displayName) => {
+    const normalizedUsername = username.trim().toLowerCase();
+    if (!USERNAME_RE.test(normalizedUsername)) {
+      throw new ApiError(
+        400,
+        "Username must be 3-30 lowercase characters (a-z, 0-9, _).",
+        "INVALID_USERNAME",
       );
-      const user = await Promise.race([getMePromise, timeoutPromise]);
-      const current = getAuthSession();
-      if (current) setAuthSession({ ...current, user: user ?? current.user });
-      set({ status: "authenticated", user: user ?? current?.user ?? stored.user });
-    } catch (err) {
-      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
-        setAuthSession(null);
-        set({ status: "anonymous", user: null });
-      } else {
-        // If it's a network error, timeout, or transient 5xx, preserve authenticated state if we have a stored session
-        if (stored.user || stored.accessToken) {
-          set({ status: "authenticated", user: stored.user });
-        } else {
-          setAuthSession(null);
-          set({ status: "anonymous", user: null });
-        }
-      }
     }
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      throw new ApiError(
+        400,
+        "Password must contain at least 8 characters.",
+        "INVALID_INPUT",
+      );
+    }
+    const existing = await aegisDb.getUserByUsername(normalizedUsername);
+    if (existing) {
+      throw new ApiError(
+        409,
+        "This username is already taken. Please choose another.",
+        "USERNAME_TAKEN",
+      );
+    }
+    const cleanDisplayName = displayName?.trim() || normalizedUsername;
+    const passwordHash = await hashPassword(password);
+    const record: LocalUserRecord = {
+      id: newLocalUserId(),
+      username: normalizedUsername,
+      displayName: cleanDisplayName,
+      passwordHash,
+      isPublic: true,
+      createdAt: Date.now(),
+    };
+    await aegisDb.putUser(record);
+    saveGuestMode(false);
+    const user = toPublicUser(record);
+    setAuthSession(buildLocalSession(user));
+    set({ status: "authenticated", user });
+    switchAccount();
   },
-  login: async (email, password) => {
-    const result = await api.login(email, password);
-    set({ status: "authenticated", user: result.user });
-  },
-  register: async (email, password, username, displayName) => {
-    const result = await api.register(email, password, username, displayName);
-    set({ status: "authenticated", user: result.user });
+  enterGuest: () => {
+    saveGuestMode(true);
+    set({ status: "guest", user: GUEST_USER });
+    switchAccount();
   },
   updateProfile: async (patch) => {
-    const updated = await api.updateProfile(patch);
     const current = getAuthSession();
+    const userId = current?.user?.id;
+    if (!userId || userId === GUEST_USER.id) {
+      return patch as PublicUser;
+    }
+    const updated = await aegisDb.updateUser(userId, {
+      ...patch,
+      displayName: patch.displayName ?? undefined,
+    });
+    const user = updated ? toPublicUser(updated) : (patch as PublicUser);
     if (current) {
-      setAuthSession({ ...current, user: { ...current.user, ...updated } });
+      setAuthSession({ ...current, user: { ...current.user, ...user } });
     }
     set((prev) => ({
-      user: prev.user ? { ...prev.user, ...updated } : updated,
+      user: prev.user ? { ...prev.user, ...user } : user,
     }));
-    return updated;
+    return { ...(current?.user ?? {}), ...user } as PublicUser;
   },
   logout: async () => {
     await clearAuthSession();
+    saveGuestMode(false);
     set({ status: "anonymous", user: null });
+    switchAccount();
   },
 }));
 
 export function getAuthErrorCode(error: unknown): string {
   if (!(error instanceof ApiError)) return "server_unavailable";
   if (error.code === "INVALID_CREDENTIALS") return "invalid_credentials";
-  if (error.code === "EMAIL_ALREADY_USED") return "email_already_used";
   if (error.code === "USERNAME_TAKEN") return "username_taken";
   if (error.code === "INVALID_USERNAME") return "invalid_username";
   if (error.code === "INVALID_INPUT") return "invalid_input";
@@ -100,13 +213,10 @@ export function getAuthErrorCode(error: unknown): string {
 export function authErrorMessage(error: unknown): string {
   if (!(error instanceof ApiError)) return "Unable to reach the server.";
   if (error.code === "INVALID_CREDENTIALS")
-    return "Email or password is incorrect.";
-  if (error.code === "EMAIL_ALREADY_USED")
-    return "This email is already in use.";
+    return "Username or password is incorrect.";
   if (error.code === "USERNAME_TAKEN")
     return "This username is already taken. Please choose another.";
   if (error.code === "INVALID_USERNAME")
     return "Username must be 3-30 lowercase characters (a-z, 0-9, _).";
-  // unknown api errors stay generic, never surface raw bodies
   return "Something went wrong. Please try again.";
 }

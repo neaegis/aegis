@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { MainNetResult } from "./netdiag";
+import type { DiscordActivityInput } from "./discordRpc";
+import type { FetchPageResponse } from "./fetchPage";
+import type {
+  SoundCloudResolveResult,
+  SoundCloudTrendingResult,
+} from "./soundcloud";
 
 export interface DeeplinkTarget {
   type: "artist" | "album" | "playlist" | "track";
@@ -35,7 +41,7 @@ export interface WindowState {
   isFullScreen: boolean;
 }
 
-export interface LinerElectronApi {
+export interface AegisElectronApi {
   platform: string;
   isHyprland: boolean;
   minimize: () => Promise<void>;
@@ -67,6 +73,9 @@ export interface LinerElectronApi {
   signRawPayload: (payload: number[] | Uint8Array) => Promise<string>;
   onDeeplink: (cb: (target: DeeplinkTarget) => void) => () => void;
   diagnoseNetwork: (hosts: string[]) => Promise<MainNetResult>;
+  fetchPage: (url: string) => Promise<FetchPageResponse>;
+  resolveSoundCloudPlaylist: (url: string) => Promise<SoundCloudResolveResult>;
+  getSoundCloudTrending: (limit?: number) => Promise<SoundCloudTrendingResult>;
   openDownloads: (customPath?: string) => Promise<boolean>;
   openExportFolder: (customPath?: string) => Promise<boolean>;
   saveDump: (input: { filename: string; content: string }) => Promise<{
@@ -89,6 +98,8 @@ export interface LinerElectronApi {
   onUpdateDownloadProgress: (cb: (progress: UpdateDownloadProgress) => void) => () => void;
   onUpdateDownloaded: (cb: (info: { version: string }) => void) => () => void;
   onUpdateError: (cb: (err: { message: string }) => void) => () => void;
+  setDiscordActivity: (activity: DiscordActivityInput) => Promise<boolean>;
+  clearDiscordActivity: () => Promise<boolean>;
 }
 
 const isHyprland = Boolean(
@@ -97,7 +108,7 @@ const isHyprland = Boolean(
   process.env.XDG_SESSION_DESKTOP?.toLowerCase().includes("hyprland"),
 );
 
-const api: LinerElectronApi = {
+const api: AegisElectronApi = {
   platform: process.platform,
   isHyprland,
   minimize: () => ipcRenderer.invoke("window:minimize"),
@@ -132,6 +143,9 @@ const api: LinerElectronApi = {
   signCoverUrl: (payload) => ipcRenderer.invoke("signer:sign-cover-url", payload),
   signRawPayload: (payload) => ipcRenderer.invoke("signer:sign-raw-payload", payload),
   diagnoseNetwork: (hosts) => ipcRenderer.invoke("net:diagnose", hosts),
+  fetchPage: (url) => ipcRenderer.invoke("import:fetch-page", url),
+  resolveSoundCloudPlaylist: (url) => ipcRenderer.invoke("import:soundcloud-resolve", url),
+  getSoundCloudTrending: (limit) => ipcRenderer.invoke("import:soundcloud-trending", limit),
   openDownloads: (customPath) => ipcRenderer.invoke("shell:open-downloads", customPath),
   openExportFolder: (customPath) => ipcRenderer.invoke("shell:open-export-folder", customPath),
   saveDump: (input) => ipcRenderer.invoke("dialog:save-dump", input),
@@ -173,6 +187,8 @@ const api: LinerElectronApi = {
       ipcRenderer.removeListener("updater:error", listener);
     };
   },
+  setDiscordActivity: (activity) => ipcRenderer.invoke("discord:set-activity", activity),
+  clearDiscordActivity: () => ipcRenderer.invoke("discord:clear-activity"),
   onDeeplink: (cb) => {
     const listener = (_event: unknown, target: DeeplinkTarget) => cb(target);
     ipcRenderer.on("deeplink:open", listener);
@@ -182,4 +198,4 @@ const api: LinerElectronApi = {
   },
 };
 
-contextBridge.exposeInMainWorld("linerElectron", api);
+contextBridge.exposeInMainWorld("aegisElectron", api);

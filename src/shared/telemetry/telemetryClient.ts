@@ -190,7 +190,7 @@ class TelemetryClient {
   }
 
   /**
-   * Track a client-side network request to the Liner API.
+   * Track a client-side network request to the Aegis API.
    */
   public trackNetwork(
     method: string,

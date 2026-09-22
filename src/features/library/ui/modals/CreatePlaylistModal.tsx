@@ -11,6 +11,12 @@ import { useTranslation } from "@/languages";
 import { useModalStore } from "../../store/modalStore";
 import { useImportStore } from "../../store/importStore";
 import { resolveApiErrorMessage } from "@/shared/api";
+import { LocalImportError } from "../../import/parsers";
+import type { SourceTrackSeed } from "../../import/parsers";
+import {
+  getSoundCloudTrending,
+  soundCloudTrackToSeed,
+} from "../../import/soundcloudClient";
 
 type Tab = "create" | "import";
 
@@ -55,6 +61,9 @@ export default function CreatePlaylistModal() {
   const [importing, setImporting] = useState(false);
   const [createError, setCreateError] = useState("");
   const [importError, setImportError] = useState("");
+  const [trendingTracks, setTrendingTracks] = useState<SourceTrackSeed[]>([]);
+  const [trendingLoading, setTrendingLoading] = useState(false);
+  const [trendingError, setTrendingError] = useState(false);
 
   const titleRef = useRef<HTMLInputElement>(null);
   const linkRef = useRef<HTMLInputElement>(null);
@@ -63,6 +72,27 @@ export default function CreatePlaylistModal() {
 
   const detectedSource = detectSourceLabel(importUrl);
   const isCreate = tab === "create";
+
+  async function loadTrending() {
+    setTrendingLoading(true);
+    setTrendingError(false);
+    const result = await getSoundCloudTrending(10);
+    setTrendingLoading(false);
+    if (result.ok) {
+      setTrendingTracks(result.tracks.map(soundCloudTrackToSeed));
+    } else {
+      setTrendingError(true);
+    }
+  }
+
+  useEffect(() => {
+    if (open) {
+      setTrendingTracks([]);
+      setTrendingLoading(false);
+      setTrendingError(false);
+      void loadTrending();
+    }
+  }, [open]);
 
   useEffect(() => {
     if (open) {
@@ -96,7 +126,7 @@ export default function CreatePlaylistModal() {
 
       if (pendingTrack) {
         try {
-          await addTrack.mutateAsync({ playlistId: playlist.id, trackId: pendingTrack.id });
+          await addTrack.mutateAsync({ playlistId: playlist.id, track: pendingTrack });
           toast(t("common.added_to_playlist"), "checkmark", {
             description: playlist.title || trimmed,
           });
@@ -136,7 +166,35 @@ export default function CreatePlaylistModal() {
       await useImportStore.getState().startImport(target, pendingTrack);
       close();
     } catch (err: unknown) {
-      setImportError(resolveApiErrorMessage(err, t, "common.failed_import_playlist"));
+      if (err instanceof LocalImportError) {
+        setImportError(err.message);
+      } else {
+        setImportError(resolveApiErrorMessage(err, t, "common.failed_import_playlist"));
+      }
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function handleSeedsImport(tracks: SourceTrackSeed[]) {
+    if (importing || tracks.length === 0) return;
+    setImportError("");
+    setImporting(true);
+    try {
+      await useImportStore
+        .getState()
+        .importLocalSeeds(tracks, {
+          source: "soundcloud",
+          sourceUrl: "",
+          title: t("import.popular_on_soundcloud"),
+        });
+      close();
+    } catch (err: unknown) {
+      if (err instanceof LocalImportError) {
+        setImportError(err.message);
+      } else {
+        setImportError(resolveApiErrorMessage(err, t, "common.failed_import_playlist"));
+      }
     } finally {
       setImporting(false);
     }
@@ -282,6 +340,96 @@ export default function CreatePlaylistModal() {
                 {importError}
               </span>
             )}
+
+            {(trendingLoading || trendingError || trendingTracks.length > 0) && (
+              <div className="flex flex-col gap-[6px] rounded-lg border border-border-alpha-14 bg-border-alpha-10 px-[10px] py-[8px]">
+                <div className="flex items-center justify-between gap-[8px]">
+                  <div className="flex flex-col min-w-0">
+                    <span
+                      className="text-[12px] font-[600] text-text-primary"
+                      style={font}
+                    >
+                      {t("import.popular_on_soundcloud")}
+                    </span>
+                    {!trendingLoading && trendingTracks.length > 0 && (
+                      <span
+                        className="text-[11px] text-text-tertiary truncate"
+                        style={font}
+                      >
+                        {t("import.popular_on_soundcloud_sub")}
+                      </span>
+                    )}
+                  </div>
+                  {trendingTracks.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0 !h-[28px] !px-[10px] !text-[12px]"
+                      disabled={importing}
+                      onClick={() => void handleSeedsImport(trendingTracks)}
+                    >
+                      {t("import.add_all_tracks")}
+                    </Button>
+                  )}
+                </div>
+
+                {trendingLoading ? (
+                  <span className="text-[12px] text-text-tertiary" style={font}>
+                    {t("common.loading")}
+                  </span>
+                ) : trendingError ? (
+                  <div className="flex items-center justify-between gap-[8px]">
+                    <span className="text-[12px] text-text-tertiary" style={font}>
+                      {t("import.soundcloud_trending_failed")}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void loadTrending()}
+                      className="shrink-0 bg-transparent border-none p-0 text-[12px] text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+                      style={font}
+                    >
+                      {t("import.try_again")}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col max-h-[168px] overflow-y-auto gap-[2px]">
+                    {trendingTracks.map((track, i) => (
+                      <button
+                        key={track.sourceId}
+                        type="button"
+                        title={track.title}
+                        disabled={importing}
+                        onClick={() => void handleSeedsImport([track])}
+                        className="flex items-center gap-[8px] w-full rounded-md border-none bg-transparent px-[6px] py-[5px] text-left text-text-secondary hover:text-text-primary hover:bg-border-alpha-14 transition-colors cursor-pointer disabled:opacity-60"
+                      >
+                        <span
+                          className="shrink-0 w-[16px] text-right text-[11px] text-text-tertiary tabular-nums"
+                          style={font}
+                        >
+                          {i + 1}
+                        </span>
+                        <span className="min-w-0 flex flex-col">
+                          <span
+                            className="text-[12px] font-[500] truncate text-text-primary"
+                            style={font}
+                          >
+                            {track.title}
+                          </span>
+                          <span
+                            className="text-[11px] text-text-tertiary truncate"
+                            style={font}
+                          >
+                            {track.artists.join(", ")}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center justify-end gap-[8px] mt-[2px]">
               <Button type="button" variant="ghost" size="sm" onClick={close}>
                 {t("common.cancel")}

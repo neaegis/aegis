@@ -21,7 +21,7 @@ export default function DeeplinkHandler() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const off = window.linerElectron?.onDeeplink((target: DeeplinkTarget) => {
+    const off = window.aegisElectron?.onDeeplink((target: DeeplinkTarget) => {
       void (async () => {
         try {
           switch (target.type) {

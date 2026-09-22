@@ -2,48 +2,22 @@ import { memo } from "react";
 import AppImage from "@/features/covers/ui/AppImage";
 import { Link, useLocation } from "react-router-dom";
 import { sidebarNavItems } from "../data/navigation";
-import logo from "@/assets/logo.svg";
-import spotifyLogo from "@/assets/branding/logo-spotify.svg";
-import discordLogo from "@/assets/branding/logo-discord.svg";
-import telegramLogo from "@/assets/branding/logo-telegram.svg";
-import auroraLogo from "@/assets/branding/logo-aurora.svg";
-import sunsetLogo from "@/assets/branding/logo-sunset.svg";
-import oceanLogo from "@/assets/branding/logo-ocean.svg";
-import forestLogo from "@/assets/branding/logo-forest.svg";
-import berryLogo from "@/assets/branding/logo-berry.svg";
-import carbonLogo from "@/assets/branding/logo-carbon.svg";
-import pixelLogo from "@/assets/branding/logo-pixel.svg";
-import scanlinesLogo from "@/assets/branding/logo-scanlines.svg";
-import vhsLogo from "@/assets/branding/logo-vhs.svg";
+import { getBrandLogo } from "@/assets/branding";
+import { getAuraColor } from "@/assets/branding/aura";
 import { useTranslation } from "@/languages";
 import { useTheme } from "next-themes";
-import { usePlayerStore, type AccentVariant } from "@/features/player";
+import { usePlayerStore } from "@/features/player";
 import { useModalStore } from "@/features/library";
 import { useCustomizationStore, getBlockStyle } from "@/features/settings";
 import { Tooltip } from "@/shared/ui";
 
-
-const brandingLogos: Record<Exclude<AccentVariant, "default">, string> = {
-  spotify: spotifyLogo,
-  discord: discordLogo,
-  telegram: telegramLogo,
-  aurora: auroraLogo,
-  sunset: sunsetLogo,
-  ocean: oceanLogo,
-  forest: forestLogo,
-  berry: berryLogo,
-  carbon: carbonLogo,
-  pixel: pixelLogo,
-  scanlines: scanlinesLogo,
-  vhs: vhsLogo,
-};
-
 interface SidebarProps {
   searchOpen: boolean;
   onSearchToggle: () => void;
+  onNavigate?: () => void;
 }
 
-function Sidebar({ searchOpen, onSearchToggle }: SidebarProps) {
+function Sidebar({ searchOpen, onSearchToggle, onNavigate }: SidebarProps) {
   const { pathname } = useLocation();
   const { t } = useTranslation();
   const accentVariant = usePlayerStore((state) => state.accentVariant);
@@ -109,6 +83,7 @@ function Sidebar({ searchOpen, onSearchToggle }: SidebarProps) {
           <Link
             key={item.id}
             to={item.href!}
+            onClick={onNavigate}
             aria-current={active ? "page" : undefined}
             className={`group relative inline-flex items-center justify-center cursor-pointer active:scale-[0.96] transition-transform duration-100`}
           >
@@ -166,30 +141,24 @@ function Sidebar({ searchOpen, onSearchToggle }: SidebarProps) {
         style={sidebarStyle}
       >
         <div className="flex justify-center items-center pt-[16px] pb-[16px] shrink-0">
-
-          <AppImage
-            src={
-              accentVariant === "default"
-                ? logo
-                : brandingLogos[accentVariant]
-            }
-            alt="Logo"
-            width={34}
-            height={34}
-            className={
-              "w-[34px] h-[34px] " +
-              (accentVariant === "default" ||
-              accentVariant === "carbon" ||
-              accentVariant === "pixel" ||
-              accentVariant === "scanlines"
-                ? "theme-logo invert dark:invert-0"
-                : "")
-            }
-            draggable={false}
-          />
+          <div
+            className="flex items-center justify-center rounded-full"
+            style={{
+              boxShadow: `0 0 30px 6px ${getAuraColor(accentVariant)}cc, 0 0 64px 12px ${getAuraColor(accentVariant)}66, 0 0 100px 18px ${getAuraColor(accentVariant)}44`,
+            }}
+          >
+            <AppImage
+              src={getBrandLogo("default", isDark)}
+              alt="Logo"
+              width={34}
+              height={34}
+              className="w-[34px] h-[34px]"
+              draggable={false}
+            />
+          </div>
         </div>
 
-        <nav className="relative flex-1 flex flex-col items-center gap-[24px] pt-[12px]">
+        <nav className="relative flex-1 flex flex-col items-center justify-center gap-[24px] pt-[8px] pb-[12px]">
           {renderNavItems()}
         </nav>
 

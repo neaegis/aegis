@@ -4,27 +4,65 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="referrer" content="no-referrer" />
-    <title>Liner</title>
+    <title>Aegis</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&family=Geist:wght@100..900&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
     />
     <link
       rel="stylesheet"
       href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700&display=swap"
+      media="print"
+      onload="this.media='all'"
     />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&family=Geist:wght@100..900&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap"
+      />
+      <link
+        rel="stylesheet"
+        href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,600,700&display=swap"
+      />
+    </noscript>
     <style>
       :root {
         --font-inter: 'Inter', sans-serif;
         --font-geist-sans: 'Geist', sans-serif;
         --font-geist-mono: 'Geist Mono', monospace;
       }
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+      }
+      #boot-splash .sp {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        border: 3px solid rgba(127, 127, 127, 0.25);
+        border-top-color: rgba(127, 127, 127, 0.9);
+        animation: bsp-in .8s linear infinite;
+      }
+      @keyframes bsp-in {
+        to {
+          transform: rotate(360deg);
+        }
+      }
     </style>
   </head>
   <body class="h-full w-full bg-transparent overflow-hidden p-1">
-    <div id="root" class="h-full w-full"></div>
+    <div id="root" class="h-full w-full">
+      <div id="boot-splash"><span class="sp"></span></div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

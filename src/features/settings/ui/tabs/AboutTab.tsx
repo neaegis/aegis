@@ -4,43 +4,19 @@ import { Refresh1Line, CheckLine, SparklesFill } from "@mingcute/react";
 import { QuestionCircle } from "@solar-icons/react";
 import Button from "@/shared/ui/Button";
 import { useToast } from "@/shared/ui";
+import { getBrandLogo } from "@/assets/branding";
+import { getAuraColor } from "@/assets/branding/aura";
 import { useTranslation, getTranslationsForAllLocales } from "@/languages";
+import { useTheme } from "next-themes";
 import { APP_VERSION } from "@/shared/config/version";
-import logo from "@/assets/logo.svg";
-import spotifyLogo from "@/assets/branding/logo-spotify.svg";
-import discordLogo from "@/assets/branding/logo-discord.svg";
-import telegramLogo from "@/assets/branding/logo-telegram.svg";
-import auroraLogo from "@/assets/branding/logo-aurora.svg";
-import sunsetLogo from "@/assets/branding/logo-sunset.svg";
-import oceanLogo from "@/assets/branding/logo-ocean.svg";
-import forestLogo from "@/assets/branding/logo-forest.svg";
-import berryLogo from "@/assets/branding/logo-berry.svg";
-import carbonLogo from "@/assets/branding/logo-carbon.svg";
-import pixelLogo from "@/assets/branding/logo-pixel.svg";
-import scanlinesLogo from "@/assets/branding/logo-scanlines.svg";
-import vhsLogo from "@/assets/branding/logo-vhs.svg";
-import { usePlayerStore, type AccentVariant } from "@/features/player";
+import { usePlayerStore } from "@/features/player";
 import { useUpdaterStore } from "@/features/updater";
-
-const brandingLogos: Record<Exclude<AccentVariant, "default">, string> = {
-  spotify: spotifyLogo,
-  discord: discordLogo,
-  telegram: telegramLogo,
-  aurora: auroraLogo,
-  sunset: sunsetLogo,
-  ocean: oceanLogo,
-  forest: forestLogo,
-  berry: berryLogo,
-  carbon: carbonLogo,
-  pixel: pixelLogo,
-  scanlines: scanlinesLogo,
-  vhs: vhsLogo,
-};
 
 const font = { fontFamily: "var(--font-inter), sans-serif" } as const;
 
 export function AboutTab({ searchQuery }: { searchQuery?: string }) {
   const { t } = useTranslation();
+  const { resolvedTheme, theme } = useTheme();
   const { toast } = useToast();
   const accentVariant = usePlayerStore((state) => state.accentVariant);
 
@@ -50,7 +26,7 @@ export function AboutTab({ searchQuery }: { searchQuery?: string }) {
 
   useEffect(() => {
     // dynamically query electron runtime version if running in desktop shell
-    window.linerElectron
+    window.aegisElectron
       ?.getAppVersion?.()
       .then((ver) => {
         if (ver) setAppVersion(ver);
@@ -89,7 +65,7 @@ export function AboutTab({ searchQuery }: { searchQuery?: string }) {
     if (!searchQuery?.trim()) return true;
     const q = searchQuery.toLowerCase().trim();
     const searchableKeys = [
-      "settings.about.liner",
+      "settings.about.aegis",
       "settings.about.tagline",
       "settings.about.updates_title",
       "settings.about.build_info",
@@ -104,29 +80,26 @@ export function AboutTab({ searchQuery }: { searchQuery?: string }) {
   return (
     <div className="flex w-full flex-col gap-[14px] py-[4px]">
       {/* ── Top Hero Card ── */}
-      <div className="relative overflow-hidden rounded-xl bg-border-alpha-14 p-[16px] flex items-center gap-[16px] border border-border-primary/40">
-        <div className="bg-bg-elevated flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-xl border border-border-primary/50">
-          <img
-            src={
-              accentVariant === "default"
-                ? logo
-                : brandingLogos[accentVariant]
-            }
-            alt="Liner Logo"
-            width={38}
-            height={38}
-            className={
-              "h-[38px] w-[38px] " +
-              (accentVariant === "default" ||
-              accentVariant === "carbon" ||
-              accentVariant === "pixel" ||
-              accentVariant === "scanlines"
-                ? "theme-logo invert dark:invert-0"
-                : "")
-            }
-            draggable={false}
-          />
-        </div>
+      <div
+          className="relative overflow-hidden rounded-xl bg-border-alpha-14 p-[16px] flex items-center gap-[16px] border border-border-primary/40"
+        >
+          <div
+            className="flex items-center justify-center rounded-xl"
+            style={{
+              boxShadow: `0 0 30px 4px ${getAuraColor(accentVariant)}cc, 0 0 66px 14px ${getAuraColor(accentVariant)}88`,
+            }}
+          >
+            <div className="bg-bg-elevated flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-xl border border-border-primary/50">
+              <img
+                src={getBrandLogo("default", (resolvedTheme || theme) === "dark")}
+                alt="Aegis Logo"
+                width={38}
+                height={38}
+                className="h-[38px] w-[38px]"
+                draggable={false}
+              />
+            </div>
+          </div>
 
         <div className="flex flex-1 flex-col min-w-0 justify-center">
           <div className="flex items-center gap-[8px]">
@@ -134,7 +107,7 @@ export function AboutTab({ searchQuery }: { searchQuery?: string }) {
               className="text-text-primary text-[17px] font-[600] tracking-[-0.01em] leading-none m-0"
               style={font}
             >
-              {t("settings.about.liner")}
+              {t("settings.about.aegis")}
             </h2>
             <div
               className="inline-flex items-center gap-[5px] h-[20px] rounded-full bg-border-alpha-14 px-[8px] border border-border-primary/40 text-[11px] font-[500] text-text-secondary leading-none select-none"
@@ -149,7 +122,7 @@ export function AboutTab({ searchQuery }: { searchQuery?: string }) {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => openUrl("https://t.me/liner_app")}
+              onClick={() => openUrl("https://t.me/neaegis")}
               className="!h-[28px] !px-[10px] !text-[12px] gap-[6px]"
             >
               <FaTelegramPlane size={13} className="text-[#2AABEE]" />
@@ -158,7 +131,7 @@ export function AboutTab({ searchQuery }: { searchQuery?: string }) {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => openUrl("https://t.me/liner_app?direct")}
+              onClick={() => openUrl("https://t.me/neaegis?direct")}
               className="!h-[28px] !px-[10px] !text-[12px] gap-[6px]"
             >
               <QuestionCircle size={14} weight="Bold" className="text-text-tertiary" />

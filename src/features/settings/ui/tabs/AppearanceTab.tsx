@@ -7,37 +7,9 @@ import {
 import { useTranslation, LOCALE_OPTIONS } from "@/languages";
 import { Select } from "@/shared/ui";
 import { SettingBlock, SettingRow, SettingSection } from "../controls";
-import defaultLogo from "@/assets/branding/logo-default.svg";
-import spotifyLogo from "@/assets/branding/logo-spotify.svg";
-import discordLogo from "@/assets/branding/logo-discord.svg";
-import telegramLogo from "@/assets/branding/logo-telegram.svg";
-import auroraLogo from "@/assets/branding/logo-aurora.svg";
-import sunsetLogo from "@/assets/branding/logo-sunset.svg";
-import oceanLogo from "@/assets/branding/logo-ocean.svg";
-import forestLogo from "@/assets/branding/logo-forest.svg";
-import berryLogo from "@/assets/branding/logo-berry.svg";
-import carbonLogo from "@/assets/branding/logo-carbon.svg";
-import pixelLogo from "@/assets/branding/logo-pixel.svg";
-import scanlinesLogo from "@/assets/branding/logo-scanlines.svg";
-import vhsLogo from "@/assets/branding/logo-vhs.svg";
+import { getAuraColor } from "@/assets/branding/aura";
 
 const font = { fontFamily: "var(--font-inter), sans-serif" } as const;
-
-const logos: Record<AccentVariant, string> = {
-  default: defaultLogo,
-  spotify: spotifyLogo,
-  discord: discordLogo,
-  telegram: telegramLogo,
-  aurora: auroraLogo,
-  sunset: sunsetLogo,
-  ocean: oceanLogo,
-  forest: forestLogo,
-  berry: berryLogo,
-  carbon: carbonLogo,
-  pixel: pixelLogo,
-  scanlines: scanlinesLogo,
-  vhs: vhsLogo,
-};
 
 const brandingVariants: readonly AccentVariant[] = [
   "default",
@@ -154,7 +126,7 @@ function ThemeCard({
 export function AppearanceTab({ searchQuery }: { searchQuery?: string }) {
   const { t, locale, setLocale } = useTranslation();
   const [mounted, setMounted] = useState(false);
-  const { theme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
   const accentVariant = usePlayerStore((state) => state.accentVariant);
   const setAccentVariant = usePlayerStore((state) => state.setAccentVariant);
 
@@ -221,7 +193,7 @@ export function AppearanceTab({ searchQuery }: { searchQuery?: string }) {
         searchQuery={searchQuery}
       >
         {mounted ? (
-          <div className="flex flex-wrap gap-[2px]">
+          <div className="flex flex-wrap gap-[8px]">
             {brandingVariants.map((variantId) => {
               const isActive = accentVariant === variantId;
               const label = t(`settings.branding.${variantId}`);
@@ -233,29 +205,21 @@ export function AppearanceTab({ searchQuery }: { searchQuery?: string }) {
                   title={label}
                   aria-label={label}
                   aria-pressed={isActive}
-                  className={`flex items-center gap-[8px] pl-[8px] pr-[12px] py-[6px] rounded-md border-none transition-colors cursor-pointer ${
+                  className={`relative flex items-center gap-[8px] pl-[8px] pr-[10px] py-[6px] rounded-md border transition-colors cursor-pointer ${
                     isActive
-                      ? "bg-bg-elevated text-text-primary font-[500]"
-                      : "bg-transparent text-text-secondary hover:bg-bg-elevated hover:text-text-primary"
+                      ? "border-text-primary text-text-primary font-[500]"
+                      : "border-transparent text-text-secondary hover:bg-bg-elevated hover:text-text-primary"
                   }`}
                 >
-                  <div className="w-[22px] h-[22px] flex items-center justify-center shrink-0">
-                    <img
-                      src={logos[variantId]}
-                      alt=""
-                      width={20}
-                      height={20}
-                      className={
-                        variantId === "default" ||
-                        variantId === "carbon" ||
-                        variantId === "pixel" ||
-                        variantId === "scanlines"
-                          ? "theme-logo invert dark:invert-0"
-                          : ""
-                      }
-                      draggable={false}
-                    />
-                  </div>
+                  <span
+                    className="w-[18px] h-[18px] rounded-full shrink-0"
+                    style={{
+                      backgroundColor: getAuraColor(variantId),
+                      boxShadow: isActive
+                        ? `0 0 10px 1px ${getAuraColor(variantId)}99`
+                        : `0 0 6px 0 ${getAuraColor(variantId)}55`,
+                    }}
+                  />
                   <span
                     className="text-[12px] leading-none whitespace-nowrap"
                     style={{ fontFamily: "var(--font-inter), sans-serif" }}

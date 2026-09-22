@@ -32,7 +32,7 @@ import { useListReorder } from "@/shared/hooks";
 import { playerEngine } from "@/features/player";
 import type { Track } from "@/shared/types";
 import { useTranslation } from "@/languages";
-import { api } from "@/shared/api";
+import { updatePlaylistLocal } from "../hooks/useLibraryMutations";
 
 interface TrackItemProps {
   track: Track;
@@ -56,7 +56,7 @@ const TrackItem = memo(function TrackItem({
   onGrabStart,
 }: TrackItemProps) {
   const handlePlay = useCallback(() => {
-    if (typeof window !== "undefined" && window.__linerWasDragging) return;
+    if (typeof window !== "undefined" && window.__aegisWasDragging) return;
     const context = playlistId ? `playlist:${playlistId}` : playlistTitle;
     playerEngine.playTrack(
       track,
@@ -234,7 +234,6 @@ function LibraryPlaylistContent() {
   const handleShare = useCallback(() => {
     if (typeof navigator !== "undefined" && navigator.clipboard && decodedId) {
       navigator.clipboard.writeText(buildShareUrl("playlist", decodedId));
-      void api.updatePlaylist(decodedId, { isPublic: true }).catch(() => {});
       toast(t("common.link_copied"), "checkmark", {
         description: viewData?.title || undefined,
       });
@@ -539,8 +538,7 @@ function LibraryPlaylistContent() {
                         if (!isEditingTitle) return;
                         const title = e.currentTarget.textContent?.trim();
                         if (title && decodedId && title !== viewData.title) {
-                          void api
-                            .updatePlaylist(decodedId, { title })
+                          void updatePlaylistLocal(decodedId, { title })
                             .then(() =>
                               window.dispatchEvent(new Event("library:changed")),
                             );
@@ -578,8 +576,7 @@ function LibraryPlaylistContent() {
                           if (!isEditingDescription) return;
                           const next = e.currentTarget.textContent?.trim() ?? "";
                           if (decodedId && next !== viewData.bio) {
-                            void api
-                              .updatePlaylist(decodedId, { description: next })
+                            void updatePlaylistLocal(decodedId, { description: next })
                               .then(() =>
                                 window.dispatchEvent(new Event("library:changed")),
                               );

@@ -3,21 +3,22 @@ let pendingWrite: { name: string; value: string } | null = null;
 
 if (typeof window !== "undefined") {
   setInterval(() => {
-    if (pendingWrite && typeof localStorage !== "undefined") {
-      try {
-        localStorage.setItem(pendingWrite.name, pendingWrite.value);
-      } catch {}
-      pendingWrite = null;
-    }
+    flushPendingStorageWrite();
   }, 3000);
 
   // Flush on page close so the last position isn't lost.
   window.addEventListener("beforeunload", () => {
-    if (pendingWrite) {
-      localStorage.setItem(pendingWrite.name, pendingWrite.value);
-      pendingWrite = null;
-    }
+    flushPendingStorageWrite();
   });
+}
+
+export function flushPendingStorageWrite(): void {
+  if (pendingWrite && typeof localStorage !== "undefined") {
+    try {
+      localStorage.setItem(pendingWrite.name, pendingWrite.value);
+    } catch {}
+    pendingWrite = null;
+  }
 }
 
 export const debouncedStorage = {

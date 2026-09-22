@@ -1,8 +1,16 @@
 import { usePlayerStore } from "../store/playerStore";
+import { MIN_AUDIBLE_GAIN } from "./volume";
+import {
+  equalizer,
+  EQ_PRESETS,
+  EQ_FLAT_BANDS,
+  isWaterEq,
+  type EqPresetId,
+} from "./equalizer";
 import { api, mediaUrl, ApiError } from "@/shared/api";
 import { log } from "@/shared/utils/logger";
 import { telemetry } from "@/shared/telemetry";
-import { linerDb } from "@/shared/storage";
+import { aegisDb } from "@/shared/storage";
 import type { Track } from "@/shared/types";
 
 export class PlayerRuntime {
@@ -20,12 +28,13 @@ export class PlayerRuntime {
   private preloadingTrackId: string | null = null;
   private preloadingPromise: Promise<void> | null = null;
   private preloadAbortController: AbortController | null = null;
+  private equalizerAttached = false;
   public onEnded?: () => void;
   public onError?: (info: { trackId: string; message: string }) => void;
 
   constructor() {
     if (typeof window !== "undefined") {
-      const existing = document.getElementById("liner-audio") as HTMLAudioElement | null;
+      const existing = document.getElementById("aegis-audio") as HTMLAudioElement | null;
       if (existing) {
         existing.pause();
         existing.removeAttribute("src");
@@ -35,7 +44,7 @@ export class PlayerRuntime {
     }
 
     this.audio = new Audio();
-    this.audio.id = "liner-audio";
+    this.audio.id = "aegis-audio";
     this.audio.crossOrigin = "anonymous";
     this.audio.preload = "auto";
     if (typeof document !== "undefined") {
@@ -44,15 +53,21 @@ export class PlayerRuntime {
     this.setupAudioListeners(this.audio);
 
     const initialVolume = usePlayerStore.getState().volume;
-    this.audio.volume = initialVolume;
+    this.audio.volume = this.toAudibleVolume(initialVolume);
     log("cyan", "boot", `volume ${initialVolume}`);
 
     usePlayerStore.subscribe((state, prevState) => {
       if (state.volume !== prevState.volume) {
         this.cancelFade();
         if (!this.audio.paused) {
-          this.audio.volume = state.volume;
+          this.audio.volume = this.toAudibleVolume(state.volume);
         }
+      }
+      if (
+        state.eqPreset !== prevState.eqPreset ||
+        state.eqCustomBands !== prevState.eqCustomBands
+      ) {
+        this.applyEqualizerSettings();
       }
     });
 
@@ -126,7 +141,7 @@ export class PlayerRuntime {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: track.title,
         artist: track.artists,
-        album: (track as { albumTitle?: string }).albumTitle || "Liner",
+        album: (track as { albumTitle?: string }).albumTitle || "Aegis",
         artwork: track.coverUrl
           ? [
               { src: track.coverUrl, sizes: "96x96", type: "image/jpeg" },
@@ -185,6 +200,7 @@ export class PlayerRuntime {
 
     audioEl.addEventListener("playing", () => {
       if (this.isResetting || audioEl !== this.audio) return;
+      void equalizer.resume();
       log("green", "audio", "playing");
 
       if (this.stallStartTime !== null) {
@@ -260,6 +276,11 @@ export class PlayerRuntime {
     }
   }
 
+  private toAudibleVolume(volume: number): number {
+    if (volume <= 0) return 0;
+    return Math.max(volume, MIN_AUDIBLE_GAIN);
+  }
+
   private fadeVolume(
     targetVolume: number,
     durationMs: number = 180,
@@ -269,7 +290,7 @@ export class PlayerRuntime {
     const startVolume = this.audio.volume;
     const diff = targetVolume - startVolume;
     if (Math.abs(diff) < 0.001 || durationMs <= 0) {
-      this.audio.volume = Math.max(0, Math.min(1, targetVolume));
+      this.audio.volume = this.toAudibleVolume(targetVolume);
       onComplete?.();
       return;
     }
@@ -289,7 +310,7 @@ export class PlayerRuntime {
         this.fadeTimer = setTimeout(tick, 16);
       } else {
         this.fadeTimer = null;
-        this.audio.volume = Math.max(0, Math.min(1, targetVolume));
+        this.audio.volume = this.toAudibleVolume(targetVolume);
         onComplete?.();
       }
     };
@@ -328,7 +349,7 @@ export class PlayerRuntime {
     if (this.currentTrackId === track.id) return;
     if (this.preloadingTrackId === track.id) return;
 
-    const cached = await linerDb.getAudio(track.id);
+    const cached = await aegisDb.getAudio(track.id);
     if (cached) return;
 
     this.preloadAbortController?.abort();
@@ -361,8 +382,8 @@ export class PlayerRuntime {
           response.headers.get("content-type") ||
           "audio/webm";
         const blob = new Blob([arrayBuffer], { type: mimeType });
-        await linerDb.putAudio(track.id, blob, mimeType);
-        await linerDb.putTrack(track);
+        await aegisDb.putAudio(track.id, blob, mimeType);
+        await aegisDb.putTrack(track);
         log(
           "green",
           "preload",
@@ -409,14 +430,16 @@ export class PlayerRuntime {
 
     this.safeResetAudioElement();
 
+    await this.ensureEqualizerEnabled();
+
     try {
-      const cachedAudio = await linerDb.getAudio(track.id);
+      const cachedAudio = await aegisDb.getAudio(track.id);
       if (epoch !== this.loadEpoch || controller.signal.aborted) {
         return;
       }
 
       if (cachedAudio) {
-        void linerDb.putTrack(track);
+        void aegisDb.putTrack(track);
         const blobUrl = URL.createObjectURL(cachedAudio.blob);
         this.activeBlobUrl = blobUrl;
         this.audio.src = blobUrl;
@@ -676,6 +699,33 @@ export class PlayerRuntime {
     }
   }
 
+  private async ensureEqualizerEnabled(): Promise<void> {
+    if (this.equalizerAttached) return;
+    const st = usePlayerStore.getState();
+    const bands =
+      st.eqPreset === "custom"
+        ? st.eqCustomBands
+        : (EQ_PRESETS[st.eqPreset] ?? EQ_FLAT_BANDS);
+    const ok = await equalizer.attach(this.audio);
+    this.equalizerAttached = true;
+    if (ok) {
+      equalizer.apply(bands, isWaterEq(st.eqPreset as EqPresetId));
+      await equalizer.resume();
+    } else {
+      log("yellow", "equalizer", "Web Audio unavailable — EQ disabled");
+    }
+  }
+
+  public applyEqualizerSettings(): void {
+    const st = usePlayerStore.getState();
+    const bands =
+      st.eqPreset === "custom"
+        ? st.eqCustomBands
+        : (EQ_PRESETS[st.eqPreset] ?? EQ_FLAT_BANDS);
+    equalizer.apply(bands, isWaterEq(st.eqPreset as EqPresetId));
+    void equalizer.resume();
+  }
+
   private cacheAudioInBackground(track: Track, url: string, preferredMimeType?: string) {
     if (track.durationMs && track.durationMs > 20 * 60 * 1000) return;
     fetch(url, { headers: { Range: "bytes=0-" } })
@@ -684,8 +734,8 @@ export class PlayerRuntime {
         const arrayBuffer = await res.arrayBuffer();
         const mimeType = preferredMimeType || res.headers.get("content-type") || "audio/webm";
         const blob = new Blob([arrayBuffer], { type: mimeType });
-        await linerDb.putAudio(track.id, blob, mimeType);
-        await linerDb.putTrack(track);
+        await aegisDb.putAudio(track.id, blob, mimeType);
+        await aegisDb.putTrack(track);
         log("green", "playback", `background cached: ${track.title} (${Math.round(blob.size / 1024)} KB)`);
       })
       .catch(() => {});

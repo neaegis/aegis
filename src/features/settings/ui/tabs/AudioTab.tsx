@@ -79,10 +79,10 @@ export function AudioTab({ searchQuery }: { searchQuery?: string }) {
                   type="button"
                   onClick={async () => {
                     const targetPath = useConnectivityStore.getState().lastSavedDumpPath || undefined;
-                    if (window.linerElectron?.openExportFolder) {
-                      await window.linerElectron.openExportFolder(targetPath);
-                    } else if (window.linerElectron?.openDownloads) {
-                      await window.linerElectron.openDownloads(targetPath);
+                    if (window.aegisElectron?.openExportFolder) {
+                      await window.aegisElectron.openExportFolder(targetPath);
+                    } else if (window.aegisElectron?.openDownloads) {
+                      await window.aegisElectron.openDownloads(targetPath);
                     } else {
                       toast(t("settings.connection.open_folder"), "info");
                     }

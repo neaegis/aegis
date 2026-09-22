@@ -7,6 +7,7 @@ import { I18nProvider } from "@/languages";
 import { AuthLock } from "@/features/auth";
 import { CoverSwRegistrar } from "@/features/covers";
 import { usePresenceSync } from "@/shared/presence";
+import { DiscordPresenceSync } from "@/shared/presence/useDiscordRichPresence";
 import { AppRoutes } from "./routes";
 import DeeplinkHandler from "./DeeplinkHandler";
 import EnvironmentWarning from "./EnvironmentWarning";
@@ -37,6 +38,7 @@ export default function App() {
       >
         <AppIconSync />
         <PresenceSync />
+        <DiscordPresenceSync />
         <AppleEmojiProvider>
           <I18nProvider>
             <ToastProvider>

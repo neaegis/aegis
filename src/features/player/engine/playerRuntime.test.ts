@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { playerRuntime, PlayerRuntime } from "./playerRuntime";
 import { usePlayerStore } from "../store/playerStore";
 import { api } from "@/shared/api";
-import { linerDb } from "@/shared/storage";
+import { aegisDb } from "@/shared/storage";
 import type { Track } from "@/shared/types";
 
 const track: Track = {
@@ -113,13 +113,13 @@ describe("PlayerRuntime audio caching", () => {
     vi.restoreAllMocks();
   });
 
-  it("plays directly from linerDb cache when audio blob exists without calling backend session API", async () => {
+  it("plays directly from aegisDb cache when audio blob exists without calling backend session API", async () => {
     const playSpy = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
     const sessionSpy = vi.spyOn(api, "createPlaybackSession");
     const fetchSpy = vi.spyOn(globalThis, "fetch");
 
     const mockBlob = new Blob(["fake-opus-data"], { type: "audio/webm" });
-    await linerDb.putAudio("cached-track-1", mockBlob, "audio/webm");
+    await aegisDb.putAudio("cached-track-1", mockBlob, "audio/webm");
 
     const cachedTrack: Track = {
       ...track,
@@ -135,7 +135,7 @@ describe("PlayerRuntime audio caching", () => {
     expect(usePlayerStore.getState().status).toBe("playing");
   });
 
-  it("fetches, plays, and saves to linerDb on cache miss", async () => {
+  it("fetches, plays, and saves to aegisDb on cache miss", async () => {
     const playSpy = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
     const sessionSpy = vi.spyOn(api, "createPlaybackSession").mockResolvedValue({
       sessionId: "pb_123",
@@ -167,7 +167,7 @@ describe("PlayerRuntime audio caching", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(playSpy).toHaveBeenCalled();
 
-    const storedAudio = await linerDb.getAudio("fresh-track-2");
+    const storedAudio = await aegisDb.getAudio("fresh-track-2");
     expect(storedAudio).not.toBeNull();
     expect(storedAudio?.byteSize).toBe(4);
   });
@@ -202,7 +202,7 @@ describe("PlayerRuntime audio caching", () => {
     expect(sessionSpy).toHaveBeenCalledTimes(1);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
 
-    const storedAudio = await linerDb.getAudio("next-track-3");
+    const storedAudio = await aegisDb.getAudio("next-track-3");
     expect(storedAudio).not.toBeNull();
     expect(storedAudio?.byteSize).toBe(4);
 

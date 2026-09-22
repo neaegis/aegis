@@ -11,6 +11,7 @@ import {
   Book2,
   QuestionCircle,
   Database,
+  Keyboard,
 } from "@solar-icons/react";
 import Dialog from "@/shared/ui/Dialog";
 import { UserAvatar } from "@/shared/ui";
@@ -25,9 +26,10 @@ import {
   StorageTab,
   PrivacyTab,
   AboutTab,
+  ControlsTab,
 } from "./tabs";
 
-type TabId = "Playback" | "Appearance" | "Customization" | "Audio" | "Storage" | "Privacy" | "About";
+type TabId = "Playback" | "Appearance" | "Customization" | "Audio" | "Storage" | "Privacy" | "About" | "Controls";
 
 const TAB_ICONS: Record<TabId, typeof Play> = {
   Playback: Play,
@@ -37,10 +39,11 @@ const TAB_ICONS: Record<TabId, typeof Play> = {
   Storage: Database,
   Privacy: ShieldCheck,
   About: InfoCircle,
+  Controls: Keyboard,
 };
 
 const TAB_GROUPS: { labelKey: "preferences" | "application"; ids: TabId[] }[] = [
-  { labelKey: "preferences", ids: ["Playback", "Audio", "Appearance", "Customization"] },
+  { labelKey: "preferences", ids: ["Playback", "Audio", "Appearance", "Customization", "Controls"] },
   { labelKey: "application", ids: ["Storage", "Privacy", "About"] },
 ];
 
@@ -74,8 +77,12 @@ const SETTING_ITEMS: { tabId: TabId; titleKey: string; descKey?: string }[] = [
   // Privacy
   { tabId: "Privacy", titleKey: "settings.telemetry.title", descKey: "settings.telemetry.description" },
 
+  // Controls
+  { tabId: "Controls", titleKey: "settings.controls.shortcuts_section" },
+  { tabId: "Controls", titleKey: "settings.controls.discord_section" },
+
   // About
-  { tabId: "About", titleKey: "settings.about.liner", descKey: "common.app.version" },
+  { tabId: "About", titleKey: "settings.about.aegis", descKey: "common.app.version" },
   { tabId: "About", titleKey: "settings.notifications.test_button" },
 ];
 
@@ -94,7 +101,7 @@ export default function SettingsModal() {
     close();
   };
 
-  const tabLabels: Record<TabId, string> = {
+const tabLabels: Record<TabId, string> = {
     Playback: t("settings.tabs.playback"),
     Appearance: t("settings.tabs.appearance"),
     Customization: t("settings.tabs.customization") || "Customization",
@@ -102,6 +109,7 @@ export default function SettingsModal() {
     Storage: t("settings.tabs.storage"),
     Privacy: t("settings.tabs.privacy"),
     About: t("settings.tabs.about"),
+    Controls: t("settings.tabs.controls"),
   };
 
   const tabDescriptions: Record<TabId, string> = {
@@ -112,6 +120,7 @@ export default function SettingsModal() {
     Storage: t("settings.storage.description"),
     Privacy: t("settings.privacy.description"),
     About: t("settings.about.tagline"),
+    Controls: t("settings.controls.description"),
   };
 
   const matchingTabIds = useMemo(() => {
@@ -127,6 +136,7 @@ export default function SettingsModal() {
       Storage: "settings.tabs.storage",
       Privacy: "settings.tabs.privacy",
       About: "settings.tabs.about",
+      Controls: "settings.tabs.controls",
     };
 
     const TAB_DESC_KEYS: Record<TabId, string> = {
@@ -137,6 +147,7 @@ export default function SettingsModal() {
       Storage: "settings.storage.description",
       Privacy: "settings.privacy.description",
       About: "settings.about.tagline",
+      Controls: "settings.controls.description",
     };
 
 
@@ -192,7 +203,7 @@ export default function SettingsModal() {
     user?.displayName ||
     user?.username ||
     user?.email?.split("@")[0] ||
-    "Liner";
+    "Aegis";
   const handle = user?.username ? `@${user.username}` : (user?.email ?? t("settings.manage_account"));
 
   return (
@@ -294,7 +305,7 @@ export default function SettingsModal() {
             </button>
             <button
               type="button"
-              onClick={() => openExternal("https://t.me/liner_app?direct")}
+              onClick={() => openExternal("https://t.me/neaegis?direct")}
               className="w-full flex items-center gap-[10px] px-[10px] py-[8px] rounded-[8px] border-0 bg-transparent text-text-secondary hover:bg-border-alpha-14 hover:text-text-primary cursor-pointer text-left transition-colors"
               style={{ ...font, fontSize: "13.5px" }}
             >
@@ -383,6 +394,7 @@ export default function SettingsModal() {
             {activeTab === "Storage" && <StorageTab searchQuery={searchQuery} />}
             {activeTab === "Privacy" && <PrivacyTab searchQuery={searchQuery} />}
             {activeTab === "About" && <AboutTab searchQuery={searchQuery} />}
+            {activeTab === "Controls" && <ControlsTab searchQuery={searchQuery} />}
 
           </motion.div>
         </div>

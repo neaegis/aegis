@@ -21,7 +21,7 @@ export default function AddToLibraryModal() {
     if (!item) return;
 
     saveExternal.mutate(
-      { type: item.type, id: item.id },
+      { type: item.type, id: item.id, item },
       {
         onSuccess: () => {
           toast(t("common.added_to_library_success"), "checkmark", {

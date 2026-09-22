@@ -6,8 +6,11 @@ import { playerEngine } from "@/features/player";
 import { usePlayerStore } from "@/features/player/store/playerStore";
 import { useToast, ScrollableText } from "@/shared/ui";
 import { useTranslation } from "@/languages";
-import { api } from "@/shared/api";
 import { notifyLibraryChanged } from "@/features/library/hooks/usePlaylists";
+import {
+  createPlaylistLocal,
+  addPlaylistTrackLocal,
+} from "@/features/library/hooks/useLibraryMutations";
 import DropdownMenu, { type DropdownMenuItem } from "@/shared/ui/DropdownMenu";
 import type { DailyMix } from "../hooks/useDailyMixes";
 import { SparklesFill, PlayFill, AddFill, NewFolderLine } from "@mingcute/react";
@@ -60,10 +63,10 @@ function DailyMixCard({ mix }: DailyMixCardProps) {
 
   const handleSaveToLibrary = useCallback(async () => {
     try {
-      const playlist = await api.createPlaylist({
-        title: mix.title,
-        description: mix.description || mix.clusterArtists.join(", "),
-      });
+      const playlist = await createPlaylistLocal(
+        mix.title,
+        mix.description || mix.clusterArtists.join(", "),
+      );
       notifyLibraryChanged();
       toast(t("common.added_to_library_success"), "checkmark", {
         description: mix.title,
@@ -72,7 +75,7 @@ function DailyMixCard({ mix }: DailyMixCardProps) {
       // Populate playlist tracks in parallel
       void Promise.all(
         mix.tracks.map((track) =>
-          api.addPlaylistTrack(playlist.id, track.id).catch(() => null),
+          addPlaylistTrackLocal(playlist.id, track).catch(() => null),
         ),
       ).then(() => {
         notifyLibraryChanged();

@@ -1,47 +1,13 @@
 import { useEffect } from "react";
 import { useTheme } from "next-themes";
-import { usePlayerStore, type AccentVariant } from "../store/playerStore";
-import defaultLogo from "@/assets/branding/logo-default.svg";
-import spotifyLogo from "@/assets/branding/logo-spotify.svg";
-import discordLogo from "@/assets/branding/logo-discord.svg";
-import telegramLogo from "@/assets/branding/logo-telegram.svg";
-import auroraLogo from "@/assets/branding/logo-aurora.svg";
-import sunsetLogo from "@/assets/branding/logo-sunset.svg";
-import oceanLogo from "@/assets/branding/logo-ocean.svg";
-import forestLogo from "@/assets/branding/logo-forest.svg";
-import berryLogo from "@/assets/branding/logo-berry.svg";
-import carbonLogo from "@/assets/branding/logo-carbon.svg";
-import pixelLogo from "@/assets/branding/logo-pixel.svg";
-import scanlinesLogo from "@/assets/branding/logo-scanlines.svg";
-import vhsLogo from "@/assets/branding/logo-vhs.svg";
-
-const brandingLogos: Record<AccentVariant, string> = {
-  default: defaultLogo,
-  spotify: spotifyLogo,
-  discord: discordLogo,
-  telegram: telegramLogo,
-  aurora: auroraLogo,
-  sunset: sunsetLogo,
-  ocean: oceanLogo,
-  forest: forestLogo,
-  berry: berryLogo,
-  carbon: carbonLogo,
-  pixel: pixelLogo,
-  scanlines: scanlinesLogo,
-  vhs: vhsLogo,
-};
-
-const invertedLightVariants: readonly AccentVariant[] = [
-  "default",
-  "carbon",
-  "pixel",
-  "scanlines",
-];
+import { usePlayerStore } from "../store/playerStore";
+import { getBrandLogo } from "@/assets/branding";
+import { getAuraColor } from "@/assets/branding/aura";
 
 async function renderIconDataUrl(
   logoSrc: string,
   isLight: boolean,
-  shouldInvert: boolean,
+  auraColor: string,
 ): Promise<string> {
   const canvas = document.createElement("canvas");
   canvas.width = 512;
@@ -62,6 +28,14 @@ async function renderIconDataUrl(
   ctx.strokeStyle = isLight ? "rgba(0, 0, 0, 0.08)" : "rgba(255, 255, 255, 0.08)";
   ctx.stroke();
 
+  // Aura = soft glow cast behind the logo on the icon canvas.
+  const gradient = ctx.createRadialGradient(256, 256, 48, 256, 256, 236);
+  gradient.addColorStop(0, `${auraColor}cc`);
+  gradient.addColorStop(0.35, `${auraColor}77`);
+  gradient.addColorStop(1, `${auraColor}00`);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(32, 32, 448, 448);
+
   const img = new Image();
   img.crossOrigin = "anonymous";
   await new Promise<void>((resolve, reject) => {
@@ -70,11 +44,7 @@ async function renderIconDataUrl(
     img.src = logoSrc;
   });
 
-  if (isLight && shouldInvert) {
-    ctx.filter = "invert(1)";
-  }
-
-  ctx.drawImage(img, 128.7, 107.8, 254.6, 296.4);
+  ctx.drawImage(img, 96, 96, 320, 320);
   return canvas.toDataURL("image/png");
 }
 
@@ -84,15 +54,15 @@ export function useAppIconSync() {
 
   useEffect(() => {
     const isLight = (resolvedTheme || theme) === "light";
-    const shouldInvert = invertedLightVariants.includes(accentVariant);
-    const logoSrc = brandingLogos[accentVariant] || defaultLogo;
+    const logoSrc = getBrandLogo("default", !isLight);
+    const auraColor = getAuraColor(accentVariant);
     let active = true;
 
-    void renderIconDataUrl(logoSrc, isLight, shouldInvert).then((dataUrl) => {
+    void renderIconDataUrl(logoSrc, isLight, auraColor).then((dataUrl) => {
       if (!active || !dataUrl) return;
 
-      if (window.linerElectron?.setAppIcon) {
-        window.linerElectron.setAppIcon(dataUrl);
+      if (window.aegisElectron?.setAppIcon) {
+        window.aegisElectron.setAppIcon(dataUrl);
       }
 
       let favicon = document.querySelector<HTMLLinkElement>("link[rel~='icon']");

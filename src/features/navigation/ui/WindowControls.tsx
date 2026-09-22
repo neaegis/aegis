@@ -17,18 +17,18 @@ export default function WindowControls({
   const [isWindowMaximized, setIsWindowMaximized] = useState(false);
 
   useEffect(() => {
-    if (!window.linerElectron) return;
+    if (!window.aegisElectron) return;
 
     // hydrate initial os window state
-    window.linerElectron.isFullScreen?.().then((fs) => {
+    window.aegisElectron.isFullScreen?.().then((fs) => {
       if (typeof fs === "boolean") setIsWindowFullScreen(fs);
     });
-    window.linerElectron.isMaximized?.().then((max) => {
+    window.aegisElectron.isMaximized?.().then((max) => {
       if (typeof max === "boolean") setIsWindowMaximized(max);
     });
 
     // live sync across os fullscreen transitions & maximize toggles
-    const unsubscribe = window.linerElectron.onWindowStateChange?.((state) => {
+    const unsubscribe = window.aegisElectron.onWindowStateChange?.((state) => {
       setIsWindowFullScreen(state.isFullScreen);
       setIsWindowMaximized(state.isMaximized);
     });
@@ -38,20 +38,20 @@ export default function WindowControls({
     };
   }, []);
 
-  const isHyprland = window.linerElectron?.isHyprland ?? false;
+  const isHyprland = window.aegisElectron?.isHyprland ?? false;
 
   const handleMinimize = () => {
     // macos fullscreen spaces and hyprland tiling wm prohibit/ignore minimizing
     if (isWindowFullScreen || isHyprland) return;
-    window.linerElectron?.minimize();
+    window.aegisElectron?.minimize();
   };
 
   const handleMaximize = () => {
-    window.linerElectron?.toggleMaximize();
+    window.aegisElectron?.toggleMaximize();
   };
 
   const handleClose = () => {
-    window.linerElectron?.close();
+    window.aegisElectron?.close();
   };
 
   const isDarkMode = isFullscreen;

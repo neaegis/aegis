@@ -16,7 +16,7 @@ export default function EnvironmentWarning() {
     }
   });
 
-  if (typeof window !== "undefined" && window.linerElectron) return null;
+  if (typeof window !== "undefined" && window.aegisElectron) return null;
   if (skipped) return null;
 
   const skip = () => {

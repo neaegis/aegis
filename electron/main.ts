@@ -30,6 +30,14 @@ import {
   parseTraceOutput,
   type MainNetResult,
 } from "./netdiag.js";
+import { discordRpcClient, type DiscordActivityInput } from "./discordRpc.js";
+import { fetchPage, type FetchPageResponse } from "./fetchPage.js";
+import {
+  resolveSoundCloudPlaylist,
+  soundCloudTrendingTracks,
+  type SoundCloudResolveResult,
+  type SoundCloudTrendingResult,
+} from "./soundcloud.js";
 
 // root error handling for main process
 process.on("uncaughtException", (error) => {
@@ -91,7 +99,7 @@ const MIN_WINDOW_HEIGHT = 705;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    title: "Liner",
+    title: "Aegis",
     icon: path.join(process.env.VITE_PUBLIC!, "icon.png"),
     width: DEFAULT_WINDOW_WIDTH,
     height: DEFAULT_WINDOW_HEIGHT,
@@ -435,7 +443,7 @@ if (!gotTheLock) {
     });
 
     ipcMain.handle("storage:clear-audio-cache", async () => {
-      // Audio blobs and tracks are cleared safely inside renderer via linerDb
+      // Audio blobs and tracks are cleared safely inside renderer via aegisDb
       return true;
     });
 
@@ -576,6 +584,43 @@ if (!gotTheLock) {
     ipcMain.handle("signer:get-time-offset", () => {
       return getServerTimeOffset();
     });
+
+    // fetches a remote playlist page from an allowlisted host so the renderer
+    // can import it without exposing the whole http stack to the ui thread.
+    ipcMain.handle("import:fetch-page", async (_event, url: unknown): Promise<FetchPageResponse> => {
+      if (typeof url !== "string" || url.length === 0 || url.length > 2048) {
+        return { ok: false, status: 0, finalUrl: "", text: "", sizeBytes: 0, error: "invalid url" };
+      }
+      try {
+        return await fetchPage(url);
+      } catch (err: any) {
+        return {
+          ok: false,
+          status: 0,
+          finalUrl: url,
+          text: "",
+          sizeBytes: 0,
+          error: String(err?.message || err).slice(0, 200),
+        };
+      }
+    });
+
+    ipcMain.handle(
+      "import:soundcloud-resolve",
+      async (_event, url: unknown): Promise<SoundCloudResolveResult> => {
+        if (typeof url !== "string" || url.length === 0 || url.length > 2048) {
+          return { ok: false, code: "invalid_url", message: "invalid url" };
+        }
+        return resolveSoundCloudPlaylist(url);
+      },
+    );
+
+    ipcMain.handle(
+      "import:soundcloud-trending",
+      async (_event, limit: unknown): Promise<SoundCloudTrendingResult> => {
+        return soundCloudTrendingTracks(typeof limit === "number" ? limit : 15);
+      },
+    );
 
     createWindow();
 
@@ -825,17 +870,21 @@ if (!gotTheLock) {
       });
     });
 
+    let isForegroundCheck = false;
+
     autoUpdater.on("error", (err) => {
-      console.error("\x1b[31m updater \x1b[0m autoUpdater error:", err?.message || err);
-      mainWindow?.webContents.send("updater:error", {
-        message: err?.message || "Update check failed",
-      });
+      const message = err?.message || "Update check failed";
+      console.error("\x1b[31m updater \x1b[0m autoUpdater error:", message);
+      if (isForegroundCheck) {
+        mainWindow?.webContents.send("updater:error", { message });
+      }
     });
 
     ipcMain.handle("updater:check-for-updates", async () => {
       if (!app.isPackaged) {
         return { available: false, error: "Updater is disabled in dev mode" };
       }
+      isForegroundCheck = true;
       try {
         const result = await autoUpdater.checkForUpdates();
         return {
@@ -845,6 +894,8 @@ if (!gotTheLock) {
         };
       } catch (err: any) {
         return { available: false, error: err?.message || "Failed to check for updates" };
+      } finally {
+        isForegroundCheck = false;
       }
     });
 
@@ -865,6 +916,26 @@ if (!gotTheLock) {
         autoUpdater.quitAndInstall(false, true);
       });
       return true;
+    });
+
+    ipcMain.handle("discord:set-activity", (_event, activity: DiscordActivityInput) => {
+      try {
+        discordRpcClient.setActivity(activity || {});
+        return true;
+      } catch (err: any) {
+        console.error("\x1b[41;37m discord \x1b[0m set-activity error:", err?.message || err);
+        return false;
+      }
+    });
+
+    ipcMain.handle("discord:clear-activity", () => {
+      try {
+        discordRpcClient.clearActivity();
+        return true;
+      } catch (err: any) {
+        console.error("\x1b[41;37m discord \x1b[0m clear-activity error:", err?.message || err);
+        return false;
+      }
     });
 
     // automatic update check after window initialization (packaged app only)

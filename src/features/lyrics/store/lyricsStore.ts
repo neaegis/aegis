@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { debouncedStorage } from "@/shared/utils/storage";
+import {
+  registerUserScopedRehydrate,
+  userScopedStorage,
+} from "@/shared/utils/userScope";
 import {
   parseRawLyrics,
   applyLyricsOffset,
@@ -218,7 +221,7 @@ export const useLyricsStore = create<LyricsState>()(
     }),
     {
       name: LYRICS_SESSION_STORAGE_KEY,
-      storage: createJSONStorage(() => debouncedStorage),
+      storage: createJSONStorage(() => userScopedStorage),
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.lyricsLoading = false;
@@ -235,4 +238,6 @@ export const useLyricsStore = create<LyricsState>()(
     },
   ),
 );
+
+registerUserScopedRehydrate(() => useLyricsStore.persist.rehydrate());
 

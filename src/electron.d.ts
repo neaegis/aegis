@@ -1,8 +1,8 @@
-import type { LinerElectronApi } from "../electron/preload";
+import type { AegisElectronApi } from "../electron/preload";
 
 declare global {
   interface Window {
-    linerElectron?: LinerElectronApi;
+    aegisElectron?: AegisElectronApi;
   }
 }
 

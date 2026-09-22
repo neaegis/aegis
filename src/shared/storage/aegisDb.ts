@@ -43,10 +43,95 @@ export interface CachedArtistRecord {
   lastCheckedAt: number;
 }
 
-const DB_NAME = "liner_db_v1";
-const DB_VERSION = 3;
+export type StoredTrackSnapshot = Pick<
+  Track,
+  "id" | "title" | "artists" | "coverUrl" | "durationMs" | "playCount"
+> & {
+  artistId?: string;
+  artistList?: Track["artistList"];
+  album?: Track["album"];
+  explicit?: boolean;
+};
 
-class LinerDb {
+export interface LocalUserRecord {
+  id: string;
+  username: string;
+  displayName: string;
+  passwordHash: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  isPublic?: boolean;
+  createdAt: number;
+}
+
+export interface LocalLikeRecord {
+  id: string;
+  userId: string;
+  track: StoredTrackSnapshot;
+  likedAt: number;
+}
+
+export interface LocalPlaylistItemRecord {
+  itemId: string;
+  track: StoredTrackSnapshot;
+}
+
+export interface LocalPlaylistRecord {
+  id: string;
+  userId: string;
+  playlistId: string;
+  title: string;
+  description?: string;
+  items: LocalPlaylistItemRecord[];
+  createdAt: number;
+  updatedAt: number;
+  revision: number;
+}
+
+export interface LocalCollectionRecord {
+  id: string;
+  userId: string;
+  type: "albums" | "artists" | "playlists";
+  refId: string;
+  payload: {
+    title: string;
+    coverUrl?: string;
+    subtitle?: string;
+    trackCount?: number;
+  };
+  savedAt: number;
+}
+
+const DB_NAME = "liner_db_v1";
+const DB_VERSION = 4;
+
+type StoreName =
+  | "tracks"
+  | "audio"
+  | "lyrics"
+  | "artists"
+  | "users"
+  | "likes"
+  | "playlists"
+  | "collections";
+
+function likeKey(userId: string, trackId: string): string {
+  return `like:${userId}:${trackId}`;
+}
+
+function playlistKey(userId: string, playlistId: string): string {
+  return `pl:${userId}:${playlistId}`;
+}
+
+function collectionKey(
+  userId: string,
+  type: "albums" | "artists" | "playlists",
+  refId: string,
+): string {
+  return `col:${userId}:${type}:${refId}`;
+}
+
+class AegisDb {
   private dbPromise: Promise<IDBDatabase> | null = null;
   private isSupported = typeof indexedDB !== "undefined";
 
@@ -54,6 +139,10 @@ class LinerDb {
   private memAudio = new Map<string, CachedAudioRecord>();
   private memLyrics = new Map<string, CachedLyricsRecord>();
   private memArtists = new Map<string, CachedArtistRecord>();
+  private memUsers = new Map<string, LocalUserRecord>();
+  private memLikes = new Map<string, LocalLikeRecord>();
+  private memPlaylists = new Map<string, LocalPlaylistRecord>();
+  private memCollections = new Map<string, LocalCollectionRecord>();
 
   private handleDbError(err: unknown) {
     this.dbPromise = null;
@@ -106,6 +195,33 @@ class LinerDb {
           const artistStore = db.createObjectStore("artists", { keyPath: "id" });
           artistStore.createIndex("lastCheckedAt", "lastCheckedAt", { unique: false });
         }
+
+        if (!db.objectStoreNames.contains("users")) {
+          const userStore = db.createObjectStore("users", { keyPath: "id" });
+          userStore.createIndex("username", "username", { unique: true });
+        }
+
+        if (!db.objectStoreNames.contains("likes")) {
+          const likeStore = db.createObjectStore("likes", { keyPath: "id" });
+          likeStore.createIndex("userId", "userId", { unique: false });
+          likeStore.createIndex("likedAt", "likedAt", { unique: false });
+        }
+
+        if (!db.objectStoreNames.contains("playlists")) {
+          const playlistStore = db.createObjectStore("playlists", {
+            keyPath: "id",
+          });
+          playlistStore.createIndex("userId", "userId", { unique: false });
+          playlistStore.createIndex("updatedAt", "updatedAt", { unique: false });
+        }
+
+        if (!db.objectStoreNames.contains("collections")) {
+          const collectionStore = db.createObjectStore("collections", {
+            keyPath: "id",
+          });
+          collectionStore.createIndex("userId", "userId", { unique: false });
+          collectionStore.createIndex("savedAt", "savedAt", { unique: false });
+        }
       };
 
       request.onsuccess = () => {
@@ -140,7 +256,7 @@ class LinerDb {
 
   // executes indexeddb transaction with one auto-reconnect retry and zero unhandled rejections
   private async runTransaction<T>(
-    storeName: "tracks" | "audio" | "lyrics" | "artists",
+    storeName: StoreName,
     mode: IDBTransactionMode,
     operation: (store: IDBObjectStore) => Promise<T>,
   ): Promise<T | null> {
@@ -521,11 +637,274 @@ class LinerDb {
     return total;
   }
 
-  async clearStore(storeName: "tracks" | "audio" | "lyrics" | "artists"): Promise<void> {
+  private async readRecord<T>(storeName: StoreName, key: string): Promise<T | null> {
+    const result = await this.runTransaction(storeName, "readonly", (store) => {
+      return new Promise<T | null>((resolve) => {
+        const req = store.get(key);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      });
+    });
+    return result ?? null;
+  }
+
+  private async writeRecord(storeName: StoreName, record: unknown): Promise<void> {
+    await this.runTransaction(storeName, "readwrite", (store) => {
+      return new Promise<void>((resolve, reject) => {
+        const req = store.put(record);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    });
+  }
+
+  private async deleteRecord(storeName: StoreName, key: string): Promise<void> {
+    await this.runTransaction(storeName, "readwrite", (store) => {
+      return new Promise<void>((resolve) => {
+        const req = store.delete(key);
+        req.onsuccess = () => resolve();
+        req.onerror = () => resolve();
+      });
+    });
+  }
+
+  private async readAllByIndex<T>(
+    storeName: StoreName,
+    indexName: string,
+    value: string,
+  ): Promise<T[]> {
+    const result = await this.runTransaction(storeName, "readonly", (store) => {
+      return new Promise<T[]>((resolve) => {
+        const records: T[] = [];
+        const req = store.index(indexName).openCursor(IDBKeyRange.only(value));
+        req.onsuccess = () => {
+          const cursor = req.result;
+          if (cursor) {
+            records.push(cursor.value as T);
+            cursor.continue();
+          } else {
+            resolve(records);
+          }
+        };
+        req.onerror = () => resolve([]);
+      });
+    });
+    return result && result.length > 0 ? result : [];
+  }
+
+  // ---- Local users ---------------------------------------------------------
+
+  async getUser(id: string): Promise<LocalUserRecord | null> {
+    const mem = this.memUsers.get(id);
+    if (mem) return mem;
+    const result = await this.readRecord<LocalUserRecord>("users", id);
+    if (result) this.memUsers.set(id, result);
+    return result ?? this.memUsers.get(id) ?? null;
+  }
+
+  async getUserByUsername(username: string): Promise<LocalUserRecord | null> {
+    for (const record of this.memUsers.values()) {
+      if (record.username === username) return record;
+    }
+    const result = await this.readAllByIndex<LocalUserRecord>(
+      "users",
+      "username",
+      username,
+    );
+    if (result.length > 0) {
+      this.memUsers.set(result[0].id, result[0]);
+      return result[0];
+    }
+    return null;
+  }
+
+  async putUser(record: LocalUserRecord): Promise<void> {
+    this.memUsers.set(record.id, record);
+    await this.writeRecord("users", record);
+  }
+
+  async updateUser(
+    id: string,
+    patch: Partial<Omit<LocalUserRecord, "id" | "passwordHash">>,
+  ): Promise<LocalUserRecord | null> {
+    const existing = (await this.getUser(id)) ?? null;
+    if (!existing) return null;
+    const updated: LocalUserRecord = {
+      ...existing,
+      ...patch,
+      passwordHash: existing.passwordHash,
+    };
+    this.memUsers.set(id, updated);
+    await this.writeRecord("users", updated);
+    return updated;
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    this.memUsers.delete(id);
+    await this.deleteRecord("users", id);
+  }
+
+  // ---- Local library: likes ------------------------------------------------
+
+  async putLike(userId: string, track: StoredTrackSnapshot): Promise<void> {
+    const now = Date.now();
+    const record: LocalLikeRecord = {
+      id: likeKey(userId, track.id),
+      userId,
+      track,
+      likedAt: now,
+    };
+    this.memLikes.set(record.id, record);
+    await this.writeRecord("likes", record);
+  }
+
+  async deleteLike(userId: string, trackId: string): Promise<void> {
+    const key = likeKey(userId, trackId);
+    this.memLikes.delete(key);
+    await this.deleteRecord("likes", key);
+  }
+
+  async listLikes(userId: string): Promise<LocalLikeRecord[]> {
+    const mem = Array.from(this.memLikes.values()).filter((r) => r.userId === userId);
+    if (mem.length > 0) {
+      return mem.sort((a, b) => b.likedAt - a.likedAt);
+    }
+    const result = await this.readAllByIndex<LocalLikeRecord>("likes", "userId", userId);
+    result.sort((a, b) => b.likedAt - a.likedAt);
+    return result;
+  }
+
+  // ---- Local library: playlists --------------------------------------------
+
+  async putPlaylist(record: LocalPlaylistRecord): Promise<void> {
+    this.memPlaylists.set(record.id, record);
+    await this.writeRecord("playlists", record);
+  }
+
+  async getPlaylist(
+    userId: string,
+    playlistId: string,
+  ): Promise<LocalPlaylistRecord | null> {
+    const key = playlistKey(userId, playlistId);
+    const mem = this.memPlaylists.get(key);
+    if (mem) return mem;
+    const result = await this.readRecord<LocalPlaylistRecord>("playlists", key);
+    if (result) this.memPlaylists.set(key, result);
+    return result ?? this.memPlaylists.get(key) ?? null;
+  }
+
+  async listPlaylists(userId: string): Promise<LocalPlaylistRecord[]> {
+    const mem = Array.from(this.memPlaylists.values()).filter(
+      (r) => r.userId === userId,
+    );
+    if (mem.length > 0) {
+      return mem.sort((a, b) => b.updatedAt - a.updatedAt);
+    }
+    const result = await this.readAllByIndex<LocalPlaylistRecord>(
+      "playlists",
+      "userId",
+      userId,
+    );
+    result.sort((a, b) => b.updatedAt - a.updatedAt);
+    return result;
+  }
+
+  async deletePlaylist(userId: string, playlistId: string): Promise<void> {
+    const key = playlistKey(userId, playlistId);
+    this.memPlaylists.delete(key);
+    await this.deleteRecord("playlists", key);
+  }
+
+  // ---- Local library: saved collections ------------------------------------
+
+  async saveCollection(
+    userId: string,
+    refType: "albums" | "artists" | "playlists",
+    refId: string,
+    payload: LocalCollectionRecord["payload"],
+  ): Promise<void> {
+    const now = Date.now();
+    const record: LocalCollectionRecord = {
+      id: collectionKey(userId, refType, refId),
+      userId,
+      type: refType,
+      refId,
+      payload,
+      savedAt: now,
+    };
+    this.memCollections.set(record.id, record);
+    await this.writeRecord("collections", record);
+  }
+
+  async removeCollection(
+    userId: string,
+    refType: "albums" | "artists" | "playlists",
+    refId: string,
+  ): Promise<void> {
+    const key = collectionKey(userId, refType, refId);
+    this.memCollections.delete(key);
+    await this.deleteRecord("collections", key);
+  }
+
+  async listCollections(
+    userId: string,
+    refType: "albums" | "artists" | "playlists",
+  ): Promise<LocalCollectionRecord[]> {
+    const mem = Array.from(this.memCollections.values()).filter(
+      (r) => r.userId === userId && r.type === refType,
+    );
+    if (mem.length > 0) {
+      return mem.sort((a, b) => b.savedAt - a.savedAt);
+    }
+    const result = await this.readAllByIndex<LocalCollectionRecord>(
+      "collections",
+      "userId",
+      userId,
+    );
+    return result
+      .filter((r) => r.type === refType)
+      .sort((a, b) => b.savedAt - a.savedAt);
+  }
+
+  // ---- Test/session helpers -------------------------------------------------
+
+  async deleteAllForUser(userId: string): Promise<void> {
+    for (const [key, record] of this.memLikes) {
+      if (record.userId === userId) this.memLikes.delete(key);
+    }
+    const likes = await this.readAllByIndex<LocalLikeRecord>("likes", "userId", userId);
+    for (const like of likes) await this.deleteRecord("likes", like.id);
+
+    for (const [key, record] of this.memPlaylists) {
+      if (record.userId === userId) this.memPlaylists.delete(key);
+    }
+    const playlists = await this.readAllByIndex<LocalPlaylistRecord>(
+      "playlists",
+      "userId",
+      userId,
+    );
+    for (const playlist of playlists) await this.deleteRecord("playlists", playlist.id);
+
+    for (const [key, record] of this.memCollections) {
+      if (record.userId === userId) this.memCollections.delete(key);
+    }
+    const collections = await this.readAllByIndex<LocalCollectionRecord>(
+      "collections",
+      "userId",
+      userId,
+    );
+    for (const item of collections) await this.deleteRecord("collections", item.id);
+  }
+
+  async clearStore(storeName: StoreName): Promise<void> {
     if (storeName === "tracks") this.memTracks.clear();
     if (storeName === "audio") this.memAudio.clear();
     if (storeName === "lyrics") this.memLyrics.clear();
     if (storeName === "artists") this.memArtists.clear();
+    if (storeName === "users") this.memUsers.clear();
+    if (storeName === "likes") this.memLikes.clear();
+    if (storeName === "playlists") this.memPlaylists.clear();
+    if (storeName === "collections") this.memCollections.clear();
 
     await this.runTransaction(storeName, "readwrite", (store) => {
       return new Promise<void>((resolve) => {
@@ -544,4 +923,4 @@ class LinerDb {
   }
 }
 
-export const linerDb = new LinerDb();
+export const aegisDb = new AegisDb();

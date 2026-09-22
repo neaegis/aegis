@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import { debouncedStorage } from "@/shared/utils/storage";
+import {
+  registerUserScopedRehydrate,
+  userScopedStorage,
+} from "@/shared/utils/userScope";
 
 export interface BlockCustomization {
   opacity: number; // 15..100 (%)
@@ -221,7 +224,7 @@ export const useCustomizationStore = create<CustomizationState>()(
     }),
     {
       name: "liner_customization_v1",
-      storage: createJSONStorage(() => debouncedStorage),
+      storage: createJSONStorage(() => userScopedStorage),
       partialize: (state) => ({
         backgroundBlur: state.backgroundBlur,
         backgroundDim: state.backgroundDim,
@@ -243,6 +246,8 @@ export const useCustomizationStore = create<CustomizationState>()(
     },
   ),
 );
+
+registerUserScopedRehydrate(() => useCustomizationStore.persist.rehydrate());
 
 // computes composite inline style for a logic block container
 export function getBlockStyle(

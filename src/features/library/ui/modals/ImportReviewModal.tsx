@@ -26,6 +26,7 @@ import {
 import { playerEngine, usePlayerState } from "@/features/player";
 import { useToast } from "@/shared/ui";
 import { notifyLibraryChanged } from "../../hooks/usePlaylists";
+import { createPlaylistLocal, addPlaylistTrackLocal } from "../../hooks/useLibraryMutations";
 
 function formatDuration(ms?: number): string {
   if (!ms || ms <= 0) return "";
@@ -162,6 +163,10 @@ export default function ImportReviewModal() {
     setLoading(true);
 
     const loadItems = async () => {
+      if (useImportStore.getState().mode === "local") {
+        setLoading(false);
+        return;
+      }
       let attempts = 0;
       while (active && attempts < 6) {
         attempts++;
@@ -220,11 +225,79 @@ export default function ImportReviewModal() {
     }));
   };
 
+  const collectApprovedTracks = () => {
+    const autoMatched =
+      useModalStore.getState().importReviewApprovedTracks ||
+      (useImportStore.getState().job?.id === jobId ? useImportStore.getState().approvedTracks : null) ||
+      [];
+    const userApproved = items
+      .filter((item) => (decisions[item.id] || "deny") === "approve" && Boolean(item.proposedTrack))
+      .map((item) => item.proposedTrack!);
+    const seen = new Set<string>();
+    return [...autoMatched, ...userApproved].filter((track: any) => {
+      if (!track?.id || seen.has(track.id)) return false;
+      seen.add(track.id);
+      return true;
+    });
+  };
+
+  const applyLocal = async () => {
+    const state = useImportStore.getState();
+    const resetLocal = () =>
+      useImportStore.setState({
+        job: null,
+        isPolling: false,
+        mode: null,
+        error: null,
+        reviewItems: null,
+        approvedTracks: null,
+        pendingTrack: null,
+      });
+    const approved = collectApprovedTracks();
+    if (approved.length === 0) {
+      resetLocal();
+      close();
+      toast(t("import.local_no_matches"), "error");
+      return;
+    }
+    try {
+      const title = (state.job?.title || "").trim() || t("import.status_completed");
+      const playlist = await createPlaylistLocal(title, state.job?.description || undefined);
+      for (const track of approved) {
+        await addPlaylistTrackLocal(playlist.id, {
+          trackId: track.id,
+          title: track.title,
+          artists: Array.isArray(track.artists)
+            ? track.artists.map((a: any) => (a?.name ? String(a.name) : String(a))).join(", ")
+            : "",
+          artistList: Array.isArray(track.artists) ? track.artists : undefined,
+          coverUrl: track.cover?.url ? mediaUrl(track.cover.url) : "",
+          durationMs: track.durationMs,
+          album: track.album,
+          explicit: track.explicit,
+        });
+      }
+      if (state.pendingTrack) {
+        await addPlaylistTrackLocal(playlist.id, state.pendingTrack).catch(() => null);
+      }
+      resetLocal();
+      notifyLibraryChanged();
+      toast(t("import.status_completed_sub").replace("{count}", String(approved.length)), "checkmark");
+      close();
+    } catch {
+      toast(t("import.status_failed"), "error");
+    }
+  };
+
   const handleApply = async () => {
     if (!jobId || submitting) return;
     setSubmitting(true);
 
     try {
+      if (useImportStore.getState().mode === "local") {
+        await applyLocal();
+        return;
+      }
       const decisionList: ImportReviewDecision[] = items.map((item) => ({
         reviewId: item.id,
         decision: decisions[item.id] || "deny",
@@ -272,6 +345,10 @@ export default function ImportReviewModal() {
     setSubmitting(true);
 
     try {
+      if (useImportStore.getState().mode === "local") {
+        await applyLocal();
+        return;
+      }
       const autoMatchedTracks =
         useModalStore.getState().importReviewApprovedTracks ||
         (useImportStore.getState().job?.id === jobId ? useImportStore.getState().approvedTracks : null) ||

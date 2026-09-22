@@ -41,7 +41,12 @@ export function setAuthSession(next: AuthTokens | null): void {
 }
 
 export function getAccessToken(): string | null {
-  return getAuthSession()?.accessToken ?? null;
+  const token = getAuthSession()?.accessToken ?? null;
+  return token && !token.startsWith("local:") ? token : null;
+}
+
+export function isLocalSession(s: AuthTokens | null): boolean {
+  return Boolean(s?.accessToken && s.accessToken.startsWith("local:"));
 }
 
 /**
@@ -86,6 +91,7 @@ export async function getValidAccessToken(): Promise<string | null> {
 
   const current = getAuthSession();
   if (!current?.accessToken) return null;
+  if (isLocalSession(current)) return null;
 
   const expiresAtMs = getSessionExpiryMs(current);
   // If token expiry is known and expires in less than 2 minutes (120s), proactively refresh

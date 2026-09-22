@@ -1,15 +1,15 @@
-export type Locale = "en" | "ru" | "uk";
+export type Locale = "en" | "ru";
 
 const LOCALE_STORAGE_KEY = "liner_locale";
 
 export function getStoredLocale(): Locale {
   if (typeof window === "undefined" || !window.localStorage) return "en";
   const stored = window.localStorage.getItem(LOCALE_STORAGE_KEY);
-  if (stored === "en" || stored === "ru" || stored === "uk") return stored;
-  // Handle legacy stored 'ua'
-  if (stored === "ua") {
-    storeLocale("uk");
-    return "uk";
+  if (stored === "en" || stored === "ru") return stored;
+  // Handle legacy stored 'ua'/'uk'
+  if (stored === "ua" || stored === "uk") {
+    storeLocale("ru");
+    return "ru";
   }
   return getBrowserLocale();
 }
@@ -27,7 +27,6 @@ export function getBrowserLocale(): Locale {
     const code = l.slice(0, 2).toLowerCase();
     if (code === "en") return "en";
     if (code === "ru") return "ru";
-    if (code === "uk" || code === "ua") return "uk";
   }
   return "ru";
 }

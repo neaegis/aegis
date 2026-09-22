@@ -31,7 +31,7 @@ describe("useWindowDrag", () => {
     mockToggleMaximize = vi.fn();
     mockStartWindowMove = vi.fn();
 
-    (window as any).linerElectron = {
+    (window as any).aegisElectron = {
       dragMove: mockDragMove,
       toggleMaximize: mockToggleMaximize,
       startWindowMove: mockStartWindowMove,
@@ -42,7 +42,7 @@ describe("useWindowDrag", () => {
     await act(async () => {
       root.unmount();
     });
-    delete (window as any).linerElectron;
+    delete (window as any).aegisElectron;
     if (container.parentNode) {
       container.parentNode.removeChild(container);
     }

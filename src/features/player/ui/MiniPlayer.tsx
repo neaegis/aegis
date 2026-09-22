@@ -17,6 +17,7 @@ import {
   MaximizeSquare3,
   TrashBin2,
   Bookmark,
+  SliderHorizontal,
 } from "@solar-icons/react";
 import { HeartFill, HeartLine } from "@mingcute/react";
 
@@ -29,6 +30,7 @@ import { useIsTrackLiked, useLikeTrack, useUnlikeTrack } from "@/features/librar
 import { usePlayerStore } from "../store/playerStore";
 import { toVolumeGain, toVolumeLevel } from "../engine/volume";
 import { VolumePicker } from "./VolumePicker";
+import { EqualizerPanel } from "./EqualizerPanel";
 import { TimelineSlider } from "./TimelineSlider";
 import { useTheme } from "next-themes";
 import { useCoverReady, CoverImage } from "@/features/covers";
@@ -290,16 +292,28 @@ function MiniPlayer({
   const [volumePopupStyle, setVolumePopupStyle] = useState<React.CSSProperties>(
     {},
   );
+  const [eqOpen, setEqOpen] = useState(false);
+  const [eqPopupStyle, setEqPopupStyle] = useState<React.CSSProperties>({});
   const miniPlayerRootRef = useRef<HTMLDivElement>(null);
   const queuePopupRef = useRef<HTMLDivElement>(null);
   const volumePopupRef = useRef<HTMLDivElement>(null);
   const volumeToggleRef = useRef<HTMLButtonElement>(null);
+  const eqPopupRef = useRef<HTMLDivElement>(null);
+  const eqToggleRef = useRef<HTMLButtonElement>(null);
   const volumeAutoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const eqAutoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
 
   const currentTrack = player.currentTrack;
   const volumeLevel = toVolumeLevel(player.volume);
+  const eqPreset = usePlayerStore((state) => state.eqPreset);
+  const eqCustomBands = usePlayerStore((state) => state.eqCustomBands);
+  const eqActive =
+    eqPreset !== "flat" &&
+    (eqPreset !== "custom" || eqCustomBands.some((v) => Math.abs(v) > 0.5));
   const isLiked = useIsTrackLiked(currentTrack?.id);
   const likeMutation = useLikeTrack();
   const unlikeMutation = useUnlikeTrack();
@@ -312,9 +326,9 @@ function MiniPlayer({
       togglingRef.current = false;
     };
     if (isLiked) {
-      unlikeMutation.mutate(currentTrack.id, { onSettled });
+      unlikeMutation.mutate(currentTrack, { onSettled });
     } else {
-      likeMutation.mutate(currentTrack.id, { onSettled });
+      likeMutation.mutate(currentTrack, { onSettled });
     }
   }, [currentTrack, isLiked, likeMutation, unlikeMutation]);
 
@@ -406,6 +420,20 @@ function MiniPlayer({
     }, 3000);
   }, [clearVolumeAutoCloseTimer]);
 
+  const clearEqAutoCloseTimer = useCallback(() => {
+    if (eqAutoCloseTimerRef.current) {
+      clearTimeout(eqAutoCloseTimerRef.current);
+      eqAutoCloseTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleEqAutoClose = useCallback(() => {
+    clearEqAutoCloseTimer();
+    eqAutoCloseTimerRef.current = setTimeout(() => {
+      setEqOpen(false);
+    }, 3000);
+  }, [clearEqAutoCloseTimer]);
+
   useEffect(() => {
     if (!volumeOpen) {
       clearVolumeAutoCloseTimer();
@@ -431,6 +459,30 @@ function MiniPlayer({
   }, [volumeOpen]);
 
   useEffect(() => {
+    if (!eqOpen) {
+      clearEqAutoCloseTimer();
+      return;
+    }
+    scheduleEqAutoClose();
+    return () => {
+      clearEqAutoCloseTimer();
+    };
+  }, [clearEqAutoCloseTimer, scheduleEqAutoClose, eqOpen]);
+
+  useEffect(() => {
+    if (!eqOpen) return;
+    const toggle = eqToggleRef.current;
+    const root = miniPlayerRootRef.current;
+    if (!toggle || !root) return;
+    const toggleRect = toggle.getBoundingClientRect();
+    const rootRect = root.getBoundingClientRect();
+    const popupW = 560;
+    const btnW = toggleRect.width;
+    const right = rootRect.right - toggleRect.right + (btnW - popupW) / 2;
+    setEqPopupStyle({ right: Math.max(0, right) });
+  }, [eqOpen]);
+
+  useEffect(() => {
     const onDocumentPointerDown = (event: MouseEvent) => {
       const target = event.target as Node | null;
       if (!target) {
@@ -447,6 +499,16 @@ function MiniPlayer({
           scheduleVolumeAutoClose();
         }
       }
+
+      if (eqOpen) {
+        const clickedEqPopup = eqPopupRef.current?.contains(target);
+        const clickedEqToggle = eqToggleRef.current?.contains(target);
+        if (!clickedEqPopup && !clickedEqToggle) {
+          setEqOpen(false);
+        } else {
+          scheduleEqAutoClose();
+        }
+      }
     };
 
     const onDocumentKeyDown = (event: KeyboardEvent) => {
@@ -454,6 +516,11 @@ function MiniPlayer({
         event.preventDefault();
         event.stopPropagation();
         setVolumeOpen(false);
+      }
+      if (event.key === "Escape" && eqOpen) {
+        event.preventDefault();
+        event.stopPropagation();
+        setEqOpen(false);
       }
     };
 
@@ -463,7 +530,7 @@ function MiniPlayer({
       document.removeEventListener("mousedown", onDocumentPointerDown, true);
       document.removeEventListener("keydown", onDocumentKeyDown, true);
     };
-  }, [scheduleVolumeAutoClose, volumeOpen]);
+  }, [scheduleVolumeAutoClose, scheduleEqAutoClose, volumeOpen, eqOpen]);
 
   const [scrubRatio, setScrubRatio] = useState<number | null>(null);
   const activeProgress = scrubRatio !== null ? scrubRatio : progress;
@@ -498,6 +565,28 @@ function MiniPlayer({
               iconClassName="text-text-secondary hover:text-text-primary"
               valueClassName="text-text-tertiary text-[11px]"
             />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {eqOpen ? (
+          <motion.div
+            key="eq-popup"
+            ref={eqPopupRef}
+            initial={{ opacity: 0, y: 10, scale: 0.985 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.985 }}
+            transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute bottom-[74px] z-[92] prevent-seek"
+            style={eqPopupStyle}
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseEnter={clearEqAutoCloseTimer}
+            onMouseMove={clearEqAutoCloseTimer}
+            onMouseLeave={scheduleEqAutoClose}
+            onMouseDown={scheduleEqAutoClose}
+          >
+            <EqualizerPanel />
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -598,7 +687,7 @@ function MiniPlayer({
         <div
           className={`relative grid h-full pointer-events-none ${
             embedded
-              ? "grid-cols-[280px_minmax(0,1fr)_260px]"
+              ? "grid-cols-[280px_minmax(0,1fr)_300px]"
               : "grid-cols-[286px_minmax(0,1fr)]"
           } ${!usesRoundedStyle && !embedded ? "pb-[4px]" : ""}`}
         >
@@ -739,6 +828,7 @@ function MiniPlayer({
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => {
                   onQueueOpenChange?.(false);
+                  setEqOpen(false);
                   setVolumeOpen((prev) => !prev);
                   scheduleVolumeAutoClose();
                 }}
@@ -751,6 +841,33 @@ function MiniPlayer({
                 ) : (
                   <VolumeLoud size={20} />
                 )}
+              </button>
+              <button
+                ref={eqToggleRef}
+                type="button"
+                aria-label={t("eq.title")}
+                title={t("eq.title")}
+                className={`${iconButtonClass} relative ${
+                  eqOpen || eqActive
+                    ? "bg-bg-toolbox-active text-text-primary"
+                    : ""
+                }`}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => {
+                  onQueueOpenChange?.(false);
+                  setVolumeOpen(false);
+                  setEqOpen((prev) => !prev);
+                  scheduleEqAutoClose();
+                }}
+                style={{ cursor: "pointer" }}
+              >
+                <SliderHorizontal
+                  size={20}
+                  weight={eqActive ? "Bold" : "Outline"}
+                />
+                <span className="pointer-events-none absolute -top-[2px] -right-[4px] rounded-[4px] bg-btn-primary-bg px-[4px] py-[1px] text-[8px] font-bold uppercase leading-none text-btn-primary-text">
+                  {t("common.beta")}
+                </span>
               </button>
               <button
                 type="button"
@@ -774,6 +891,7 @@ function MiniPlayer({
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => {
                   setVolumeOpen(false);
+                  setEqOpen(false);
                   setQueueLimit(50);
                   onQueueToggle?.();
                 }}

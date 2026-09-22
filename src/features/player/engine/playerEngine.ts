@@ -6,6 +6,7 @@ import {
   type PlayerState,
 } from "../store/playerStore";
 import { playerRuntime } from "./playerRuntime";
+import type { EqPresetId, EqBands } from "./equalizer";
 import {
   api,
   type ApiRadioTrack,
@@ -18,7 +19,7 @@ import { toClientTrack } from "@/shared/api/track";
 import { log } from "@/shared/utils/logger";
 import { parseRawLyrics, useLyricsStore, lyricsCache, type CachedLyricsItem } from "@/features/lyrics";
 import { preloadCoverArt } from "@/features/covers";
-import { linerDb, type CachedLyricsRecord } from "@/shared/storage";
+import { aegisDb, type CachedLyricsRecord } from "@/shared/storage";
 import { showToast } from "@/shared/ui";
 import { createTranslatorSync, getStoredLocale } from "@/languages";
 import type { Track } from "@/shared/types";
@@ -682,6 +683,20 @@ class PlayerEngine {
     this.setVolume(volume);
   }
 
+  public setEqPreset(id: EqPresetId): void {
+    usePlayerStore.getState().setEqPreset(id);
+  }
+
+  public setEqCustomBands(bands: EqBands): void {
+    const state = usePlayerStore.getState();
+    state.setEqCustomBands(bands);
+    state.setEqPreset("custom");
+  }
+
+  public resetEq(): void {
+    this.setEqPreset("flat");
+  }
+
   public setRepeat(mode: RepeatMode): void {
     usePlayerStore.getState().setRepeat(mode);
   }
@@ -995,7 +1010,7 @@ class PlayerEngine {
       void this.prefetchLyrics(nextTrack.id);
     }
 
-    void linerDb.putTrack(nextTrack);
+    void aegisDb.putTrack(nextTrack);
 
     if (playerRuntime) {
       void playerRuntime.preloadTrack(nextTrack);
@@ -1017,7 +1032,7 @@ class PlayerEngine {
 
     const prefetchPromise = (async () => {
       try {
-        const existing = await linerDb.getLyrics(trackId);
+        const existing = await aegisDb.getLyrics(trackId);
         if (existing) {
           const lastChecked = existing.lastCheckedAt || 0;
           if (Date.now() - lastChecked < SEVEN_DAYS_MS) {
@@ -1054,7 +1069,7 @@ class PlayerEngine {
 
         if (bestCandidate) {
           lyricsCache.set(trackId, bestCandidate, providers);
-          void linerDb.putLyrics({
+          void aegisDb.putLyrics({
             trackId,
             syncLevel: bestCandidate.syncLevel,
             quality: bestCandidate.quality.total,
@@ -1107,7 +1122,7 @@ class PlayerEngine {
     let cached: CachedLyricsItem | CachedLyricsRecord | null = memoryCached || null;
     if (!cached) {
       try {
-        cached = await linerDb.getLyrics(trackId);
+        cached = await aegisDb.getLyrics(trackId);
       } catch {
         cached = null;
       }
@@ -1147,7 +1162,7 @@ class PlayerEngine {
         return;
       }
 
-      void linerDb.updateLyricsChecked(trackId);
+      void aegisDb.updateLyricsChecked(trackId);
     } else {
       const negTimestamp = this.negativeLyricsCache.get(trackId);
       if (negTimestamp && Date.now() - negTimestamp < TWENTY_FOUR_HOURS_MS) {
@@ -1186,7 +1201,7 @@ class PlayerEngine {
       try {
         await this.inFlightLyricsPrefetches.get(trackId);
         if (token !== this.lyricsLoadToken || controller.signal.aborted) return;
-        const freshCached = lyricsCache.get(trackId) || (await linerDb.getLyrics(trackId));
+        const freshCached = lyricsCache.get(trackId) || (await aegisDb.getLyrics(trackId));
         if (freshCached && freshCached.candidate) {
           const parsed = parseRawLyrics(
             freshCached.candidate.lyrics.content,
@@ -1255,7 +1270,7 @@ class PlayerEngine {
               lyricsQuality: candidate.quality.total,
             });
             lyricsCache.set(trackId, candidate, updatedProviders);
-            void linerDb.putLyrics({
+            void aegisDb.putLyrics({
               trackId,
               syncLevel: candidate.syncLevel,
               quality: candidate.quality.total,
@@ -1292,7 +1307,7 @@ class PlayerEngine {
           if (bestCandidate) {
             const currentProviders = useLyricsStore.getState().availableProviders;
             lyricsCache.set(trackId, bestCandidate, currentProviders);
-            void linerDb.putLyrics({
+            void aegisDb.putLyrics({
               trackId,
               syncLevel: bestCandidate.syncLevel,
               quality: bestCandidate.quality.total,

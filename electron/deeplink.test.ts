@@ -40,8 +40,8 @@ describe("parseDeeplink", () => {
 
   it("finds the deeplink arg anywhere in argv", () => {
     expect(
-      findDeeplinkArg(["/usr/bin/liner", "liner://track?id=RGdkabupfPI"]),
+      findDeeplinkArg(["/usr/bin/aegis", "liner://track?id=RGdkabupfPI"]),
     ).toBe("liner://track?id=RGdkabupfPI");
-    expect(findDeeplinkArg(["/usr/bin/liner", "--no-sandbox"])).toBeUndefined();
+    expect(findDeeplinkArg(["/usr/bin/aegis", "--no-sandbox"])).toBeUndefined();
   });
 });

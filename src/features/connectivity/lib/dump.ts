@@ -47,7 +47,7 @@ export function buildOfflineDump(input: {
 }
 
 export function dumpFilename(dump: OfflineDump): string {
-  return `liner-offline-dump-${dump.generatedAt.replace(/[:.]/g, "-")}.json`;
+  return `aegis-offline-dump-${dump.generatedAt.replace(/[:.]/g, "-")}.json`;
 }
 
 export interface SaveDumpResult {
@@ -62,9 +62,9 @@ export async function downloadDump(dump: OfflineDump): Promise<SaveDumpResult> {
   const filename = dumpFilename(dump);
 
   // use native save dialog in electron to track exact save destination
-  if (typeof window !== "undefined" && window.linerElectron?.saveDump) {
+  if (typeof window !== "undefined" && window.aegisElectron?.saveDump) {
     try {
-      const res = await window.linerElectron.saveDump({ filename, content });
+      const res = await window.aegisElectron.saveDump({ filename, content });
       return { success: res.success, filePath: res.filePath, canceled: res.canceled, error: res.error };
     } catch (err) {
       return { success: false, error: String(err) };

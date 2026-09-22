@@ -2,6 +2,10 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { Track } from "@/shared/types";
 import { debouncedStorage } from "@/shared/utils/storage";
+import {
+  registerUserScopedRehydrate,
+  userScopedStorage,
+} from "@/shared/utils/userScope";
 
 export { debouncedStorage };
 
@@ -25,6 +29,14 @@ export type AccentVariant =
   | "pixel"
   | "scanlines"
   | "vhs";
+
+import type { EqPresetId, EqBands } from "../engine/equalizer";
+import {
+  EQ_BAND_COUNT,
+  EQ_FLAT_BANDS,
+  clampEqBands,
+  isEqPresetId,
+} from "../engine/equalizer";
 
 export interface TransportState {
   status: PlayerStatus;
@@ -57,6 +69,9 @@ export interface SessionState {
   trackDoubleClickBehavior: TrackDoubleClickBehavior;
   defaultPlaybackContext: DefaultPlaybackContext;
   fullscreen: boolean;
+  miniPlayerCollapsed: boolean;
+  eqPreset: EqPresetId;
+  eqCustomBands: EqBands;
 }
 
 export type PlayerState = TransportState &
@@ -101,6 +116,9 @@ export interface PlayerStore extends PlayerState {
   setTrackDoubleClickBehavior: (value: TrackDoubleClickBehavior) => void;
   setDefaultPlaybackContext: (value: DefaultPlaybackContext) => void;
   setFullscreen: (value: boolean) => void;
+  setMiniPlayerCollapsed: (value: boolean) => void;
+  setEqPreset: (value: EqPresetId) => void;
+  setEqCustomBands: (value: EqBands) => void;
   clearQueue: () => void;
 }
 
@@ -137,6 +155,9 @@ export const usePlayerStore = create<PlayerStore>()(
       trackDoubleClickBehavior: "play",
       defaultPlaybackContext: "resume",
       fullscreen: false,
+      miniPlayerCollapsed: false,
+      eqPreset: "flat",
+      eqCustomBands: EQ_FLAT_BANDS,
 
       dispatch: () => {
         // Implementation injected by PlayerEngine
@@ -176,6 +197,11 @@ export const usePlayerStore = create<PlayerStore>()(
       setDefaultPlaybackContext: (defaultPlaybackContext: DefaultPlaybackContext) =>
         set({ defaultPlaybackContext }),
       setFullscreen: (fullscreen: boolean) => set({ fullscreen }),
+      setMiniPlayerCollapsed: (miniPlayerCollapsed: boolean) =>
+        set({ miniPlayerCollapsed }),
+      setEqPreset: (eqPreset: EqPresetId) => set({ eqPreset }),
+      setEqCustomBands: (eqCustomBands: EqBands) =>
+        set({ eqCustomBands: clampEqBands(eqCustomBands) }),
       clearQueue: () => {
         const state = get();
         if (state.currentTrack) {
@@ -199,7 +225,7 @@ export const usePlayerStore = create<PlayerStore>()(
     }),
     {
       name: PLAYER_SESSION_STORAGE_KEY,
-      storage: createJSONStorage(() => debouncedStorage),
+      storage: createJSONStorage(() => userScopedStorage),
       onRehydrateStorage: () => (state) => {
         // After hydration, if a track was saved, restore as paused so the UI
         // shows the track and position without auto-playing.
@@ -225,6 +251,19 @@ export const usePlayerStore = create<PlayerStore>()(
         if (state && !validVariants.includes(state.accentVariant)) {
           state.accentVariant = "default";
         }
+        if (state) {
+          if (!isEqPresetId(state.eqPreset ?? "")) {
+            state.eqPreset = "flat";
+          }
+          if (
+            !Array.isArray(state.eqCustomBands) ||
+            state.eqCustomBands.length !== EQ_BAND_COUNT
+          ) {
+            state.eqCustomBands = EQ_FLAT_BANDS;
+          } else {
+            state.eqCustomBands = clampEqBands(state.eqCustomBands);
+          }
+        }
       },
       partialize: (state) => ({
         ...(state.defaultPlaybackContext === "resume"
@@ -249,7 +288,12 @@ export const usePlayerStore = create<PlayerStore>()(
         autoplaySimilar: state.autoplaySimilar,
         trackDoubleClickBehavior: state.trackDoubleClickBehavior,
         defaultPlaybackContext: state.defaultPlaybackContext,
+        miniPlayerCollapsed: state.miniPlayerCollapsed,
+        eqPreset: state.eqPreset,
+        eqCustomBands: state.eqCustomBands,
       }),
     },
   ),
 );
+
+registerUserScopedRehydrate(() => usePlayerStore.persist.rehydrate());

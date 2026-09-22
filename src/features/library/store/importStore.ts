@@ -4,19 +4,51 @@ import { showToast } from "@/shared/ui";
 import { createTranslatorSync, getStoredLocale } from "@/languages";
 import { notifyLibraryChanged } from "../hooks/usePlaylists";
 import { useModalStore, type TrackDetail } from "./modalStore";
+import {
+  detectImportSource,
+  LocalImportError,
+  parsePageForKind,
+  type SourceTrackSeed,
+} from "../import/parsers";
+import { matchSeedsToCatalog } from "../import/matcher";
+import {
+  resolveSoundCloudPlaylist,
+  soundCloudTrackToSeed,
+} from "../import/soundcloudClient";
 
 export interface ActiveImportState {
   job: ImportJob | null;
   isPolling: boolean;
+  mode: "server" | "local" | null;
   error: string | null;
   pendingTrack: TrackDetail | null;
   reviewItems: ImportReview[] | null;
   approvedTracks: any[] | null;
   startImport: (url: string, pendingTrack?: TrackDetail | null) => Promise<ImportJob>;
+  importLocalSeeds: (
+    tracks: SourceTrackSeed[],
+    opts?: {
+      source?: ImportJob["source"];
+      sourceUrl?: string;
+      title?: string;
+      description?: string;
+    },
+  ) => Promise<ImportJob>;
   listenToWebSocketWorker: (job: ImportJob) => void;
   pollJob: (jobId: string) => Promise<void>;
   cancelPolling: () => void;
   reset: () => void;
+}
+
+interface PageFetchBridge {
+  fetchPage?: (url: string) => Promise<{
+    ok: boolean;
+    status: number;
+    finalUrl: string;
+    text: string;
+    sizeBytes: number;
+    error?: string;
+  }>;
 }
 
 let activeWebSocket: WebSocket | null = null;
@@ -44,9 +76,44 @@ function cleanupActiveConnections() {
   }
 }
 
+function localErrorMessage(code: string, kind: string): string {
+  const translate = createTranslatorSync(getStoredLocale());
+  switch (code) {
+    case "network":
+      return translate("import.local_network_error");
+    case "unsupported_source":
+      if (kind === "vk") return translate("import.local_source_vk");
+      if (kind === "yandex") return translate("import.local_source_yandex");
+      return translate("import.local_source_unsupported");
+    case "spotify_unavailable":
+      return translate("import.local_spotify_unavailable");
+    case "no_tracks":
+    default:
+      return translate("import.local_no_tracks_found");
+  }
+}
+
+async function fetchImportedPage(url: string): Promise<string> {
+  const bridge = (window as unknown as { aegisElectron?: PageFetchBridge }).aegisElectron;
+  if (!bridge?.fetchPage) {
+    throw new LocalImportError("network", "bridge");
+  }
+  const res = await bridge.fetchPage(url);
+  if (!res || !res.ok) {
+    throw new LocalImportError("network", res?.error ?? String(res?.status ?? ""));
+  }
+  return res.text;
+}
+
+function translateImportError(err: unknown): LocalImportError {
+  if (err instanceof LocalImportError) return err;
+  return new LocalImportError("network", String((err as Error)?.message ?? err));
+}
+
 export const useImportStore = create<ActiveImportState>((set, get) => ({
   job: null,
   isPolling: false,
+  mode: null,
   error: null,
   pendingTrack: null,
   reviewItems: null,
@@ -57,6 +124,7 @@ export const useImportStore = create<ActiveImportState>((set, get) => ({
     set({
       job: null,
       isPolling: false,
+      mode: null,
       error: null,
       pendingTrack: null,
       reviewItems: null,
@@ -71,35 +139,81 @@ export const useImportStore = create<ActiveImportState>((set, get) => ({
 
   startImport: async (url: string, pendingTrack: TrackDetail | null = null) => {
     get().cancelPolling();
+    cleanupActiveConnections();
     set({
+      mode: "local",
       error: null,
       isPolling: true,
       pendingTrack,
       reviewItems: null,
       approvedTracks: null,
+      job: null,
     });
+
+    const source = detectImportSource(url);
     try {
-      const job = await api.createPlaylistImport(url);
-      set({ job });
+      let tracks: SourceTrackSeed[] = [];
+      let parsedTitle: string | undefined;
+      let parsedDescription: string | undefined;
 
-      // direct imports (e.g. soundcloud) complete immediately on backend without external worker
-      if (job.status === "completed") {
-        set({ isPolling: false, pendingTrack: null });
-        notifyLibraryChanged();
-        return job;
+      if (source === "soundcloud") {
+        const apiResult = await resolveSoundCloudPlaylist(url);
+        if (apiResult.ok && apiResult.playlist.tracks.length > 0) {
+          tracks = apiResult.playlist.tracks.map(soundCloudTrackToSeed);
+          parsedTitle = apiResult.playlist.title;
+        }
       }
 
-      if (job.workerWsUrl && job.importToken) {
-        set({ isPolling: true });
-        get().listenToWebSocketWorker(job);
-      } else {
-        set({ error: "Import worker unavailable", isPolling: false, pendingTrack: null });
+      if (tracks.length === 0) {
+        const html = await fetchImportedPage(url);
+        const parsed = parsePageForKind(source, html, url);
+        parsedTitle = parsed.title;
+        parsedDescription = parsed.description;
+        tracks = parsed.tracks;
       }
-      return job;
+
+      return await get().importLocalSeeds(tracks, {
+        source: source as ImportJob["source"],
+        sourceUrl: url,
+        title: parsedTitle,
+        description: parsedDescription,
+      });
     } catch (err) {
-      set({ error: "Failed to start import", isPolling: false, pendingTrack: null });
-      throw err;
+      const localErr = translateImportError(err);
+      const message = localErrorMessage(localErr.code, source);
+      set({ isPolling: false, error: message, mode: "local" });
+      throw new LocalImportError(localErr.code, message);
     }
+  },
+
+  importLocalSeeds: async (tracks, opts) => {
+    const seeds = tracks.filter((track) => Boolean(track.title && track.title.trim()));
+    if (seeds.length === 0) {
+      const msg = localErrorMessage("no_tracks", opts?.source ?? "unknown");
+      set({ isPolling: false, error: msg, mode: "local" });
+      throw new LocalImportError("no_tracks", msg);
+    }
+
+    const reviewItems = await matchSeedsToCatalog(seeds);
+
+    const approvedTracks = reviewItems
+      .filter((item) => item.reason === "auto_matched" && Boolean(item.proposedTrack))
+      .map((item) => item.proposedTrack);
+
+    const job: ImportJob = {
+      id: `local-import-${Date.now()}`,
+      source: (opts?.source ?? "youtube") as ImportJob["source"],
+      sourceUrl: opts?.sourceUrl ?? "",
+      title: opts?.title,
+      description: opts?.description,
+      status: "awaiting_decision",
+      requiresDecision: true,
+      createdAt: new Date().toISOString(),
+    };
+
+    set({ job, isPolling: false, reviewItems, approvedTracks, mode: "local" });
+    useModalStore.getState().openImportReview(job.id, reviewItems, approvedTracks);
+    return job;
   },
 
   listenToWebSocketWorker: (job: ImportJob) => {

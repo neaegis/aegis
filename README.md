@@ -1,6 +1,6 @@
 <div align="center">
 
-# Liner
+# Aegis
 
 **Modern desktop music streaming player with syllable-synced lyrics and reactive dynamic visuals.**
 
@@ -20,7 +20,7 @@
 
 <br/>
 
-<img src="./.github/assets/lyrics_preview.png" alt="Liner Fullscreen Lyrics" width="100%" />
+<img src="./.github/assets/lyrics_preview.png" alt="Aegis Fullscreen Lyrics" width="100%" />
 
 </div>
 
@@ -32,12 +32,12 @@
   <table>
     <tr>
       <td align="center" width="50%">
-        <img src="./.github/assets/home.png" alt="Liner Home Page" />
+        <img src="./.github/assets/home.png" alt="Aegis Home Page" />
         <br/>
         <sub><b>Home</b></sub>
       </td>
       <td align="center" width="50%">
-        <img src="./.github/assets/demo.gif" alt="Liner Fullscreen Mode Demo" />
+        <img src="./.github/assets/demo.gif" alt="Aegis Fullscreen Mode Demo" />
         <br/>
         <sub><b>Fullscreen mode</b></sub>
       </td>
@@ -48,7 +48,7 @@
 ---
 
 > [!NOTE]
-> Liner client connects to the official Liner API backend for music catalog, streaming playback, and synchronized lyrics.
+> Aegis client connects to the official Aegis API backend for music catalog, streaming playback, and synchronized lyrics.
 
 ---
 
@@ -102,7 +102,7 @@ bun install
 ### Running in Development
 
 ```bash
-# Start Liner in development mode (Electron app with Vite hot-reload)
+# Start Aegis in development mode (Electron app with Vite hot-reload)
 pnpm run dev
 # or
 bun run dev
@@ -159,7 +159,7 @@ Contributions, bug fixes, and feature enhancements are welcome:
 
 ## License
 
-Liner is distributed under the **Liner Source-Available & Non-Commercial Contribution License**.
+Aegis is distributed under the **Aegis Source-Available & Non-Commercial Contribution License**.
 
 - **Allowed**: Personal non-commercial usage, local builds, and upstream contributions.
 - **Prohibited**: Commercial distribution, public competing forks, or extracting core algorithms for third-party products.

@@ -1,5 +1,5 @@
 /**
- * Client Telemetry & Metrics Configuration for Liner Desktop.
+ * Client Telemetry & Metrics Configuration for Aegis Desktop.
  * Easily toggled via environment variables or runtime switch.
  */
 

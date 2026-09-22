@@ -1,4 +1,4 @@
-import { linerDb } from "@/shared/storage/linerDb";
+import { aegisDb } from "@/shared/storage/aegisDb";
 import {
   audioCache,
   DEFAULT_AUDIO_CACHE_LIMIT_BYTES,
@@ -186,19 +186,19 @@ export async function getStorageAnalytics(): Promise<StorageAnalytics> {
     cachePath: string;
   } | null = null;
 
-  if (typeof window !== "undefined" && window.linerElectron?.getCacheStats) {
+  if (typeof window !== "undefined" && window.aegisElectron?.getCacheStats) {
     try {
-      electronStats = await window.linerElectron.getCacheStats();
+      electronStats = await window.aegisElectron.getCacheStats();
       if (electronStats.cachePath) {
         cachePath = electronStats.cachePath;
       }
     } catch {}
   }
 
-  // 2. indexeddb audio tracks & metadata added in linerDb
+  // 2. indexeddb audio tracks & metadata added in aegisDb
   try {
-    const audioTrackBytes = await linerDb.getTotalTrackBytes();
-    const audioBlobBytes = await linerDb.getTotalAudioBytes();
+    const audioTrackBytes = await aegisDb.getTotalTrackBytes();
+    const audioBlobBytes = await aegisDb.getTotalAudioBytes();
     audioBytes = audioTrackBytes + audioBlobBytes;
   } catch {}
 
@@ -220,17 +220,17 @@ export async function getStorageAnalytics(): Promise<StorageAnalytics> {
     coversBytes = Math.max(coversBytes, electronStats.serviceWorkerSize);
   }
 
-  // 4. lyrics cache added in lyricsCache.ts + linerDb lyrics
+  // 4. lyrics cache added in lyricsCache.ts + aegisDb lyrics
   try {
-    const lBytes = await linerDb.getTotalLyricsBytes();
+    const lBytes = await aegisDb.getTotalLyricsBytes();
     const lStats = lyricsCache.getStats();
     lyricsBytes = lBytes + lStats.bytes;
   } catch {}
 
-  // 5. in-memory catalog cache added in queryCache.ts + linerDb artists
+  // 5. in-memory catalog cache added in queryCache.ts + aegisDb artists
   try {
     const qStats = queryCache.getStats();
-    const aBytes = await linerDb.getTotalArtistBytes();
+    const aBytes = await aegisDb.getTotalArtistBytes();
     metadataBytes += qStats.bytes + aBytes;
   } catch {}
 
@@ -321,23 +321,23 @@ export async function clearStorageCategories(categoryIds: StorageCategoryId[]): 
 
   if (set.has("audio")) {
     audioCache.revokeAll();
-    await linerDb.clearStore("audio");
-    await linerDb.clearStore("tracks");
-    if (typeof window !== "undefined" && window.linerElectron?.clearAudioCache) {
-      await window.linerElectron.clearAudioCache();
+    await aegisDb.clearStore("audio");
+    await aegisDb.clearStore("tracks");
+    if (typeof window !== "undefined" && window.aegisElectron?.clearAudioCache) {
+      await window.aegisElectron.clearAudioCache();
     }
   }
 
   if (set.has("covers")) {
     await clearMediaAndCoverCache();
-    if (typeof window !== "undefined" && window.linerElectron?.clearCoversCache) {
-      await window.linerElectron.clearCoversCache();
+    if (typeof window !== "undefined" && window.aegisElectron?.clearCoversCache) {
+      await window.aegisElectron.clearCoversCache();
     }
   }
 
   if (set.has("lyrics")) {
     lyricsCache.clear();
-    await linerDb.clearStore("lyrics");
+    await aegisDb.clearStore("lyrics");
     if (typeof window !== "undefined" && window.localStorage) {
       localStorage.removeItem("lyrics-storage");
       const toRemove: string[] = [];
@@ -351,7 +351,7 @@ export async function clearStorageCategories(categoryIds: StorageCategoryId[]): 
 
   if (set.has("metadata")) {
     queryCache.clear();
-    await linerDb.clearStore("artists");
+    await aegisDb.clearStore("artists");
     await clearSearchAndQueryCache();
     if (typeof window !== "undefined" && window.localStorage) {
       const toRemove: string[] = [];
@@ -365,8 +365,8 @@ export async function clearStorageCategories(categoryIds: StorageCategoryId[]): 
 }
 
 export async function openCacheFolder(): Promise<boolean> {
-  if (typeof window !== "undefined" && window.linerElectron?.openCacheFolder) {
-    return window.linerElectron.openCacheFolder();
+  if (typeof window !== "undefined" && window.aegisElectron?.openCacheFolder) {
+    return window.aegisElectron.openCacheFolder();
   }
   return false;
 }
