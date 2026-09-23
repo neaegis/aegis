@@ -842,8 +842,8 @@ if (!gotTheLock) {
     });
 
     // updater config: production github releases only, no prereleases or auto-install on close
-    autoUpdater.autoDownload = false;
-    autoUpdater.autoInstallOnAppQuit = false;
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
     autoUpdater.allowPrerelease = false;
     autoUpdater.allowDowngrade = false;
 
